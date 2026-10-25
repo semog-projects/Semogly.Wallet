@@ -22,22 +22,22 @@ public class AppHostModelTests
         Assert.Contains(builder.Resources, r => r.Name == resourceName);
     }
 
-    [Fact]
-    public async Task AccountsApi_ShouldReferenceItsInfrastructure()
+    [Theory]
+    [InlineData(ResourceNames.AccountsApi, new[] { ResourceNames.AccountsDb, ResourceNames.RabbitMq, ResourceNames.Redis })]
+    [InlineData(ResourceNames.TransfersApi, new[] { ResourceNames.TransfersDb, ResourceNames.RabbitMq })]
+    public async Task Service_ShouldReferenceItsInfrastructure(string serviceName, string[] expectedReferences)
     {
         var builder = await DistributedApplicationTestingBuilder
             .CreateAsync<Projects.Semogly_Wallet_AppHost>(TestContext.Current.CancellationToken);
 
-        var accountsApi = Assert.Single(builder.Resources.OfType<ProjectResource>(), r => r.Name == ResourceNames.AccountsApi);
-        var referencedResources = accountsApi.Annotations
+        var service = Assert.Single(builder.Resources.OfType<ProjectResource>(), r => r.Name == serviceName);
+        var referencedResources = service.Annotations
             .OfType<ResourceRelationshipAnnotation>()
             .Where(a => a.Type == "Reference")
             .Select(a => a.Resource.Name)
             .ToList();
 
-        Assert.Contains(ResourceNames.AccountsDb, referencedResources);
-        Assert.Contains(ResourceNames.RabbitMq, referencedResources);
-        Assert.Contains(ResourceNames.Redis, referencedResources);
+        Assert.All(expectedReferences, expected => Assert.Contains(expected, referencedResources));
     }
 
     [Fact]
