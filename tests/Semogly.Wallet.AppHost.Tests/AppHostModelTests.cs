@@ -25,6 +25,7 @@ public class AppHostModelTests
     [Theory]
     [InlineData(ResourceNames.AccountsApi, new[] { ResourceNames.AccountsDb, ResourceNames.RabbitMq, ResourceNames.Redis })]
     [InlineData(ResourceNames.TransfersApi, new[] { ResourceNames.TransfersDb, ResourceNames.RabbitMq })]
+    [InlineData(ResourceNames.LedgerApi, new[] { ResourceNames.LedgerDb, ResourceNames.RabbitMq })]
     public async Task Service_ShouldReferenceItsInfrastructure(string serviceName, string[] expectedReferences)
     {
         var builder = await DistributedApplicationTestingBuilder

@@ -17,9 +17,11 @@ public class CleanArchitectureTests
         "StackExchange.Redis",
         "Microsoft.AspNetCore",
         "Npgsql",
+        "Marten",
+        "JasperFx",
     ];
 
-    public static TheoryData<string> Services => ["Accounts", "Transfers"];
+    public static TheoryData<string> Services => ["Accounts", "Transfers", "Ledger"];
 
     [Theory]
     [MemberData(nameof(Services))]

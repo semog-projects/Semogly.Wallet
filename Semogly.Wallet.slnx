@@ -16,6 +16,12 @@
     <Project Path="src/Services/Accounts/Semogly.Wallet.Accounts.Domain/Semogly.Wallet.Accounts.Domain.csproj" />
     <Project Path="src/Services/Accounts/Semogly.Wallet.Accounts.Infrastructure/Semogly.Wallet.Accounts.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Ledger/">
+    <Project Path="src/Services/Ledger/Semogly.Wallet.Ledger.Api/Semogly.Wallet.Ledger.Api.csproj" />
+    <Project Path="src/Services/Ledger/Semogly.Wallet.Ledger.Application/Semogly.Wallet.Ledger.Application.csproj" />
+    <Project Path="src/Services/Ledger/Semogly.Wallet.Ledger.Domain/Semogly.Wallet.Ledger.Domain.csproj" />
+    <Project Path="src/Services/Ledger/Semogly.Wallet.Ledger.Infrastructure/Semogly.Wallet.Ledger.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Transfers/">
     <Project Path="src/Services/Transfers/Semogly.Wallet.Transfers.Api/Semogly.Wallet.Transfers.Api.csproj" />
     <Project Path="src/Services/Transfers/Semogly.Wallet.Transfers.Application/Semogly.Wallet.Transfers.Application.csproj" />
@@ -26,6 +32,7 @@
     <Project Path="tests/Semogly.Wallet.Accounts.UnitTests/Semogly.Wallet.Accounts.UnitTests.csproj" />
     <Project Path="tests/Semogly.Wallet.AppHost.Tests/Semogly.Wallet.AppHost.Tests.csproj" />
     <Project Path="tests/Semogly.Wallet.ArchitectureTests/Semogly.Wallet.ArchitectureTests.csproj" />
+    <Project Path="tests/Semogly.Wallet.Ledger.UnitTests/Semogly.Wallet.Ledger.UnitTests.csproj" />
     <Project Path="tests/Semogly.Wallet.Transfers.UnitTests/Semogly.Wallet.Transfers.UnitTests.csproj" />
   </Folder>
 </Solution>

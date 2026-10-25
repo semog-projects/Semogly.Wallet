@@ -11,7 +11,7 @@ var postgres = builder.AddPostgres(ResourceNames.Postgres)
 // Database-per-service: cada microsserviço é dono exclusivo do seu banco
 var accountsDb = postgres.AddDatabase(ResourceNames.AccountsDb);
 var transfersDb = postgres.AddDatabase(ResourceNames.TransfersDb);
-postgres.AddDatabase(ResourceNames.LedgerDb);
+var ledgerDb = postgres.AddDatabase(ResourceNames.LedgerDb);
 
 var rabbitMq = builder.AddRabbitMQ(ResourceNames.RabbitMq)
     .WithDataVolume()
@@ -30,6 +30,11 @@ builder.AddProject<Projects.Semogly_Wallet_Accounts_Api>(ResourceNames.AccountsA
 
 builder.AddProject<Projects.Semogly_Wallet_Transfers_Api>(ResourceNames.TransfersApi)
     .WithReference(transfersDb).WaitFor(transfersDb)
+    .WithReference(rabbitMq).WaitFor(rabbitMq)
+    .WithHttpHealthCheck("/health");
+
+builder.AddProject<Projects.Semogly_Wallet_Ledger_Api>(ResourceNames.LedgerApi)
+    .WithReference(ledgerDb).WaitFor(ledgerDb)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithHttpHealthCheck("/health");
 
