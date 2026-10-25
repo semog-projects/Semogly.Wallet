@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Camada de infraestrutura: implementa as abstrações da Application (EF Core, MassTransit, Redis). -->
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Aspire.StackExchange.Redis.DistributedCaching" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Semogly.Wallet.Accounts.Application\Semogly.Wallet.Accounts.Application.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Semogly.Wallet.Messaging\Semogly.Wallet.Messaging.csproj" />
+  </ItemGroup>
+
+</Project>

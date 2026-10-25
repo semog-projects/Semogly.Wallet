@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Camada de domínio: entidades e regras de negócio. Sem dependência de infraestrutura. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Semogly.Wallet.SharedKernel\Semogly.Wallet.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>
