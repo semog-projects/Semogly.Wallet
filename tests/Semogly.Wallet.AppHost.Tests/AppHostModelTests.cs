@@ -29,6 +29,11 @@ public class AppHostModelTests
     [InlineData(ResourceNames.LedgerApi, new[] { ResourceNames.LedgerDb, ResourceNames.RabbitMq })]
     [InlineData(ResourceNames.FraudApi, new[] { ResourceNames.Redis, ResourceNames.RabbitMq })]
     [InlineData(ResourceNames.NotificationsApi, new[] { ResourceNames.NotificationsDb, ResourceNames.RabbitMq })]
+    [InlineData(ResourceNames.Gateway, new[]
+    {
+        ResourceNames.AccountsApi, ResourceNames.TransfersApi, ResourceNames.LedgerApi,
+        ResourceNames.FraudApi, ResourceNames.NotificationsApi,
+    })]
     public async Task Service_ShouldReferenceItsInfrastructure(string serviceName, string[] expectedReferences)
     {
         var builder = await DistributedApplicationTestingBuilder

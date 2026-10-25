@@ -23,30 +23,47 @@ var redis = builder.AddRedis(ResourceNames.Redis)
     .WithLifetime(ContainerLifetime.Persistent);
 
 // Microsserviços
-builder.AddProject<Projects.Semogly_Wallet_Accounts_Api>(ResourceNames.AccountsApi)
+var accountsApi = builder.AddProject<Projects.Semogly_Wallet_Accounts_Api>(ResourceNames.AccountsApi)
     .WithReference(accountsDb).WaitFor(accountsDb)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithReference(redis).WaitFor(redis)
     .WithHttpHealthCheck("/health");
 
-builder.AddProject<Projects.Semogly_Wallet_Transfers_Api>(ResourceNames.TransfersApi)
+var transfersApi = builder.AddProject<Projects.Semogly_Wallet_Transfers_Api>(ResourceNames.TransfersApi)
     .WithReference(transfersDb).WaitFor(transfersDb)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithHttpHealthCheck("/health");
 
-builder.AddProject<Projects.Semogly_Wallet_Ledger_Api>(ResourceNames.LedgerApi)
+var ledgerApi = builder.AddProject<Projects.Semogly_Wallet_Ledger_Api>(ResourceNames.LedgerApi)
     .WithReference(ledgerDb).WaitFor(ledgerDb)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithHttpHealthCheck("/health");
 
-builder.AddProject<Projects.Semogly_Wallet_Fraud_Api>(ResourceNames.FraudApi)
+var fraudApi = builder.AddProject<Projects.Semogly_Wallet_Fraud_Api>(ResourceNames.FraudApi)
     .WithReference(redis).WaitFor(redis)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithHttpHealthCheck("/health");
 
-builder.AddProject<Projects.Semogly_Wallet_Notifications_Api>(ResourceNames.NotificationsApi)
+var notificationsApi = builder.AddProject<Projects.Semogly_Wallet_Notifications_Api>(ResourceNames.NotificationsApi)
     .WithReference(notificationsDb).WaitFor(notificationsDb)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
+    .WithHttpHealthCheck("/health");
+
+// Gateway: único ponto de entrada externo. A chave do JWT é gerada e persistida pelo Aspire (user secrets)
+var jwtSigningKey = builder.AddParameter(
+    ResourceNames.JwtSigningKey,
+    new GenerateParameterDefault { MinLength = 64, Special = false },
+    secret: true,
+    persist: true);
+
+builder.AddProject<Projects.Semogly_Wallet_Gateway>(ResourceNames.Gateway)
+    .WithReference(accountsApi).WaitFor(accountsApi)
+    .WithReference(transfersApi).WaitFor(transfersApi)
+    .WithReference(ledgerApi).WaitFor(ledgerApi)
+    .WithReference(fraudApi).WaitFor(fraudApi)
+    .WithReference(notificationsApi).WaitFor(notificationsApi)
+    .WithEnvironment("Jwt__SigningKey", jwtSigningKey)
+    .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health");
 
 builder.Build().Run();
