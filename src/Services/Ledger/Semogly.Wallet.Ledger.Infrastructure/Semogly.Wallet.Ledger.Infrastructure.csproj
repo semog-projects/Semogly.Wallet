@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Camada de infraestrutura: event store (Marten), outbox/inbox (EF Core) e MassTransit. -->
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Npgsql" />
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Marten" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Semogly.Wallet.Ledger.Application\Semogly.Wallet.Ledger.Application.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Semogly.Wallet.Messaging\Semogly.Wallet.Messaging.csproj" />
+  </ItemGroup>
+
+</Project>
