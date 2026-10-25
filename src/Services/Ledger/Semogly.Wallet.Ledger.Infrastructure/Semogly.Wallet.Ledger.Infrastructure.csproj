@@ -17,4 +17,9 @@
     <ProjectReference Include="..\..\..\BuildingBlocks\Semogly.Wallet.Messaging\Semogly.Wallet.Messaging.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Testes de integração exercitam o LedgerUnitOfWork diretamente contra o Postgres -->
+    <InternalsVisibleTo Include="Semogly.Wallet.IntegrationTests" />
+  </ItemGroup>
+
 </Project>

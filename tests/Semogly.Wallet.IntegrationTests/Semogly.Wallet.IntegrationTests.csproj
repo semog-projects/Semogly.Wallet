@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Testes de integração: containers reais (Testcontainers) e os serviços hospedados em memória. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.RabbitMq" />
+    <PackageReference Include="Testcontainers.Redis" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Services\Accounts\Semogly.Wallet.Accounts.Api\Semogly.Wallet.Accounts.Api.csproj" />
+    <ProjectReference Include="..\..\src\Services\Transfers\Semogly.Wallet.Transfers.Api\Semogly.Wallet.Transfers.Api.csproj" />
+    <ProjectReference Include="..\..\src\Services\Ledger\Semogly.Wallet.Ledger.Api\Semogly.Wallet.Ledger.Api.csproj" />
+    <ProjectReference Include="..\..\src\Services\Fraud\Semogly.Wallet.Fraud.Api\Semogly.Wallet.Fraud.Api.csproj" />
+    <ProjectReference Include="..\..\src\Services\Notifications\Semogly.Wallet.Notifications.Api\Semogly.Wallet.Notifications.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>
