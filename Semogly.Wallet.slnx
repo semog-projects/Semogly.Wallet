@@ -9,6 +9,9 @@
     <Project Path="src/BuildingBlocks/Semogly.Wallet.Messaging/Semogly.Wallet.Messaging.csproj" />
     <Project Path="src/BuildingBlocks/Semogly.Wallet.SharedKernel/Semogly.Wallet.SharedKernel.csproj" />
   </Folder>
+  <Folder Name="/src/Gateway/">
+    <Project Path="src/Gateway/Semogly.Wallet.Gateway/Semogly.Wallet.Gateway.csproj" />
+  </Folder>
   <Folder Name="/src/Services/" />
   <Folder Name="/src/Services/Accounts/">
     <Project Path="src/Services/Accounts/Semogly.Wallet.Accounts.Api/Semogly.Wallet.Accounts.Api.csproj" />

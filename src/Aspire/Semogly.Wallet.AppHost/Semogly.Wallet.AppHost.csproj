@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\Services\Ledger\Semogly.Wallet.Ledger.Api\Semogly.Wallet.Ledger.Api.csproj" />
     <ProjectReference Include="..\..\Services\Fraud\Semogly.Wallet.Fraud.Api\Semogly.Wallet.Fraud.Api.csproj" />
     <ProjectReference Include="..\..\Services\Notifications\Semogly.Wallet.Notifications.Api\Semogly.Wallet.Notifications.Api.csproj" />
+    <ProjectReference Include="..\..\Gateway\Semogly.Wallet.Gateway\Semogly.Wallet.Gateway.csproj" />
   </ItemGroup>
 
 </Project>
