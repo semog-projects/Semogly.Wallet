@@ -12,6 +12,7 @@ public class AppHostModelTests
     [InlineData(ResourceNames.AccountsDb)]
     [InlineData(ResourceNames.TransfersDb)]
     [InlineData(ResourceNames.LedgerDb)]
+    [InlineData(ResourceNames.NotificationsDb)]
     [InlineData(ResourceNames.RabbitMq)]
     [InlineData(ResourceNames.Redis)]
     public async Task AppHost_ShouldDeclareInfrastructureResource(string resourceName)
@@ -27,6 +28,7 @@ public class AppHostModelTests
     [InlineData(ResourceNames.TransfersApi, new[] { ResourceNames.TransfersDb, ResourceNames.RabbitMq })]
     [InlineData(ResourceNames.LedgerApi, new[] { ResourceNames.LedgerDb, ResourceNames.RabbitMq })]
     [InlineData(ResourceNames.FraudApi, new[] { ResourceNames.Redis, ResourceNames.RabbitMq })]
+    [InlineData(ResourceNames.NotificationsApi, new[] { ResourceNames.NotificationsDb, ResourceNames.RabbitMq })]
     public async Task Service_ShouldReferenceItsInfrastructure(string serviceName, string[] expectedReferences)
     {
         var builder = await DistributedApplicationTestingBuilder
@@ -50,7 +52,7 @@ public class AppHostModelTests
 
         var databases = builder.Resources.OfType<PostgresDatabaseResource>().ToList();
 
-        Assert.Equal(3, databases.Count);
+        Assert.Equal(4, databases.Count);
         Assert.All(databases, db => Assert.Equal(ResourceNames.Postgres, db.Parent.Name));
     }
 }

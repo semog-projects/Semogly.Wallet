@@ -7,10 +7,12 @@ public static class ResourceNames
     public const string AccountsDb = "accounts-db";
     public const string TransfersDb = "transfers-db";
     public const string LedgerDb = "ledger-db";
+    public const string NotificationsDb = "notifications-db";
     public const string RabbitMq = "rabbitmq";
     public const string Redis = "redis";
     public const string AccountsApi = "accounts-api";
     public const string TransfersApi = "transfers-api";
     public const string LedgerApi = "ledger-api";
     public const string FraudApi = "fraud-api";
+    public const string NotificationsApi = "notifications-api";
 }
