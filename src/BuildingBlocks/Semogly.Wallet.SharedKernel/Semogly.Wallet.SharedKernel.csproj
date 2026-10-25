@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tipos base compartilhados pelas camadas Domain e Application de todos os serviços.
+       Não deve depender de nenhuma biblioteca de infraestrutura. -->
+
+</Project>
