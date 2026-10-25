@@ -1,0 +1,4 @@
+# Convenções específicas para projetos de teste
+[*.cs]
+# Permite sublinhados nos nomes dos testes (Metodo_Cenario_Resultado)
+dotnet_diagnostic.CA1707.severity = none

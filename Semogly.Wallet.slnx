@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Aspire/">
+    <Project Path="src/Aspire/Semogly.Wallet.AppHost/Semogly.Wallet.AppHost.csproj" />
+    <Project Path="src/Aspire/Semogly.Wallet.ServiceDefaults/Semogly.Wallet.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Semogly.Wallet.AppHost.Tests/Semogly.Wallet.AppHost.Tests.csproj" />
+  </Folder>
+</Solution>
