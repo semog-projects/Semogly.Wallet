@@ -28,6 +28,12 @@
     <Project Path="src/Services/Ledger/Semogly.Wallet.Ledger.Domain/Semogly.Wallet.Ledger.Domain.csproj" />
     <Project Path="src/Services/Ledger/Semogly.Wallet.Ledger.Infrastructure/Semogly.Wallet.Ledger.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Notifications/">
+    <Project Path="src/Services/Notifications/Semogly.Wallet.Notifications.Api/Semogly.Wallet.Notifications.Api.csproj" />
+    <Project Path="src/Services/Notifications/Semogly.Wallet.Notifications.Application/Semogly.Wallet.Notifications.Application.csproj" />
+    <Project Path="src/Services/Notifications/Semogly.Wallet.Notifications.Domain/Semogly.Wallet.Notifications.Domain.csproj" />
+    <Project Path="src/Services/Notifications/Semogly.Wallet.Notifications.Infrastructure/Semogly.Wallet.Notifications.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Transfers/">
     <Project Path="src/Services/Transfers/Semogly.Wallet.Transfers.Api/Semogly.Wallet.Transfers.Api.csproj" />
     <Project Path="src/Services/Transfers/Semogly.Wallet.Transfers.Application/Semogly.Wallet.Transfers.Application.csproj" />
@@ -40,6 +46,7 @@
     <Project Path="tests/Semogly.Wallet.ArchitectureTests/Semogly.Wallet.ArchitectureTests.csproj" />
     <Project Path="tests/Semogly.Wallet.Fraud.UnitTests/Semogly.Wallet.Fraud.UnitTests.csproj" />
     <Project Path="tests/Semogly.Wallet.Ledger.UnitTests/Semogly.Wallet.Ledger.UnitTests.csproj" />
+    <Project Path="tests/Semogly.Wallet.Notifications.UnitTests/Semogly.Wallet.Notifications.UnitTests.csproj" />
     <Project Path="tests/Semogly.Wallet.Transfers.UnitTests/Semogly.Wallet.Transfers.UnitTests.csproj" />
   </Folder>
 </Solution>

@@ -12,6 +12,7 @@ var postgres = builder.AddPostgres(ResourceNames.Postgres)
 var accountsDb = postgres.AddDatabase(ResourceNames.AccountsDb);
 var transfersDb = postgres.AddDatabase(ResourceNames.TransfersDb);
 var ledgerDb = postgres.AddDatabase(ResourceNames.LedgerDb);
+var notificationsDb = postgres.AddDatabase(ResourceNames.NotificationsDb);
 
 var rabbitMq = builder.AddRabbitMQ(ResourceNames.RabbitMq)
     .WithDataVolume()
@@ -40,6 +41,11 @@ builder.AddProject<Projects.Semogly_Wallet_Ledger_Api>(ResourceNames.LedgerApi)
 
 builder.AddProject<Projects.Semogly_Wallet_Fraud_Api>(ResourceNames.FraudApi)
     .WithReference(redis).WaitFor(redis)
+    .WithReference(rabbitMq).WaitFor(rabbitMq)
+    .WithHttpHealthCheck("/health");
+
+builder.AddProject<Projects.Semogly_Wallet_Notifications_Api>(ResourceNames.NotificationsApi)
+    .WithReference(notificationsDb).WaitFor(notificationsDb)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithHttpHealthCheck("/health");
 

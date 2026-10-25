@@ -21,7 +21,7 @@ public class CleanArchitectureTests
         "JasperFx",
     ];
 
-    public static TheoryData<string> Services => ["Accounts", "Transfers", "Ledger", "Fraud"];
+    public static TheoryData<string> Services => ["Accounts", "Transfers", "Ledger", "Fraud", "Notifications"];
 
     [Theory]
     [MemberData(nameof(Services))]

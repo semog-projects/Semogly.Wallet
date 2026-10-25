@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Camada de aplicação: casos de uso (commands/queries) e abstrações implementadas pela Infrastructure. -->
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Semogly.Wallet.Notifications.Domain\Semogly.Wallet.Notifications.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Semogly.Wallet.Contracts\Semogly.Wallet.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Semogly.Wallet.Notifications.UnitTests" />
+  </ItemGroup>
+
+</Project>

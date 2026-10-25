@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- Camada de apresentação: endpoints HTTP e composição da aplicação. -->
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Semogly.Wallet.Notifications.Application\Semogly.Wallet.Notifications.Application.csproj" />
+    <ProjectReference Include="..\Semogly.Wallet.Notifications.Infrastructure\Semogly.Wallet.Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Aspire\Semogly.Wallet.ServiceDefaults\Semogly.Wallet.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>
