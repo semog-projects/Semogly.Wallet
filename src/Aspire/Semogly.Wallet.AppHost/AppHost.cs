@@ -38,4 +38,9 @@ builder.AddProject<Projects.Semogly_Wallet_Ledger_Api>(ResourceNames.LedgerApi)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithHttpHealthCheck("/health");
 
+builder.AddProject<Projects.Semogly_Wallet_Fraud_Api>(ResourceNames.FraudApi)
+    .WithReference(redis).WaitFor(redis)
+    .WithReference(rabbitMq).WaitFor(rabbitMq)
+    .WithHttpHealthCheck("/health");
+
 builder.Build().Run();

@@ -20,32 +20,66 @@ public static class MessagingExtensions
     /// mensagens publicadas são gravadas na mesma transação das alterações de negócio e
     /// mensagens consumidas são deduplicadas pelo MessageId (idempotência).
     /// </summary>
+    /// <param name="builder">Builder do host.</param>
+    /// <param name="serviceName">Prefixo das filas do serviço (ver <see cref="AddMessagingCore"/>).</param>
+    /// <param name="configure">Registro de consumers e sagas.</param>
     public static IHostApplicationBuilder AddMessaging<TDbContext>(
         this IHostApplicationBuilder builder,
+        string serviceName,
         Action<IBusRegistrationConfigurator>? configure = null)
-        where TDbContext : DbContext
+        where TDbContext : DbContext =>
+        builder.AddMessagingCore(
+            serviceName,
+            bus =>
+            {
+                bus.AddEntityFrameworkOutbox<TDbContext>(outbox =>
+                {
+                    outbox.UsePostgres();
+                    outbox.UseBusOutbox();
+                });
+
+                configure?.Invoke(bus);
+            },
+            (context, endpoint) => endpoint.UseEntityFrameworkOutbox<TDbContext>(context));
+
+    /// <summary>
+    /// Variante para serviços sem banco relacional: usa o in-memory outbox, que só publica as mensagens
+    /// depois que o consumer termina com sucesso. A idempotência fica a cargo do próprio consumer.
+    /// </summary>
+    public static IHostApplicationBuilder AddMessaging(
+        this IHostApplicationBuilder builder,
+        string serviceName,
+        Action<IBusRegistrationConfigurator>? configure = null) =>
+        builder.AddMessagingCore(
+            serviceName,
+            bus => configure?.Invoke(bus),
+            (context, endpoint) => endpoint.UseInMemoryOutbox(context));
+
+    private static IHostApplicationBuilder AddMessagingCore(
+        this IHostApplicationBuilder builder,
+        string serviceName,
+        Action<IBusRegistrationConfigurator> configure,
+        Action<IRegistrationContext, IReceiveEndpointConfigurator> configureOutbox)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(serviceName);
+
         var connectionString = builder.Configuration.GetConnectionString(RabbitMqConnectionName)
             ?? throw new InvalidOperationException($"Connection string '{RabbitMqConnectionName}' não configurada.");
 
         builder.Services.AddMassTransit(bus =>
         {
-            bus.SetKebabCaseEndpointNameFormatter();
+            // Filas prefixadas pelo serviço: consumers homônimos em serviços diferentes (ex.: TransferFailedConsumer)
+            // precisam de filas próprias para que cada serviço receba sua cópia do evento
+            bus.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter(serviceName, includeNamespace: false));
 
-            bus.AddEntityFrameworkOutbox<TDbContext>(outbox =>
-            {
-                outbox.UsePostgres();
-                outbox.UseBusOutbox();
-            });
-
-            // Retry precisa envolver o outbox para que cada tentativa use uma transação nova
+            // Retry precisa envolver o outbox para que cada tentativa comece do zero
             bus.AddConfigureEndpointsCallback((context, _, endpoint) =>
             {
                 endpoint.UseMessageRetry(retry => retry.Intervals(100, 500, 1_000, 5_000));
-                endpoint.UseEntityFrameworkOutbox<TDbContext>(context);
+                configureOutbox(context, endpoint);
             });
 
-            configure?.Invoke(bus);
+            configure(bus);
 
             bus.UsingRabbitMq((context, rabbit) =>
             {

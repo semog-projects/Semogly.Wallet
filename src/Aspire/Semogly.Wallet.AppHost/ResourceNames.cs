@@ -12,4 +12,5 @@ public static class ResourceNames
     public const string AccountsApi = "accounts-api";
     public const string TransfersApi = "transfers-api";
     public const string LedgerApi = "ledger-api";
+    public const string FraudApi = "fraud-api";
 }

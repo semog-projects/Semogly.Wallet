@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Camada de infraestrutura: contadores de atividade no Redis e MassTransit. -->
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.StackExchange.Redis" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Semogly.Wallet.Fraud.Application\Semogly.Wallet.Fraud.Application.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Semogly.Wallet.Messaging\Semogly.Wallet.Messaging.csproj" />
+  </ItemGroup>
+
+</Project>

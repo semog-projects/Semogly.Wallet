@@ -43,7 +43,7 @@ public static class DependencyInjection
             marten.ApplyAllDatabaseChangesOnStartup();
         }
 
-        builder.AddMessaging<LedgerDbContext>(bus =>
+        builder.AddMessaging<LedgerDbContext>("ledger", bus =>
         {
             bus.AddConsumer<AccountCreatedConsumer>();
             bus.AddConsumer<DebitAccountConsumer>();
