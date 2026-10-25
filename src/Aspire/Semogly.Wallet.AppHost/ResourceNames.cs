@@ -10,4 +10,5 @@ public static class ResourceNames
     public const string RabbitMq = "rabbitmq";
     public const string Redis = "redis";
     public const string AccountsApi = "accounts-api";
+    public const string TransfersApi = "transfers-api";
 }

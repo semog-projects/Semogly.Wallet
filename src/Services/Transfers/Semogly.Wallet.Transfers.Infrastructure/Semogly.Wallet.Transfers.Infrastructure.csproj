@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Camada de infraestrutura: implementa as abstrações da Application (EF Core, MassTransit). -->
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Semogly.Wallet.Transfers.Application\Semogly.Wallet.Transfers.Application.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Semogly.Wallet.Messaging\Semogly.Wallet.Messaging.csproj" />
+  </ItemGroup>
+
+</Project>

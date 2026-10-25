@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Services\Accounts\Semogly.Wallet.Accounts.Api\Semogly.Wallet.Accounts.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Transfers\Semogly.Wallet.Transfers.Api\Semogly.Wallet.Transfers.Api.csproj" />
   </ItemGroup>
 
 </Project>
