@@ -15,6 +15,7 @@
   <ItemGroup Label="Aspire Client Integrations">
     <PackageVersion Include="Aspire.Npgsql" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(AspireVersion)" />
+    <PackageVersion Include="Aspire.StackExchange.Redis" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.StackExchange.Redis.DistributedCaching" Version="$(AspireVersion)" />
   </ItemGroup>
 

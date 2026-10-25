@@ -18,7 +18,7 @@ public static class DependencyInjection
         // Connection string injetada pelo AppHost do Aspire
         builder.AddNpgsqlDbContext<TransfersDbContext>("transfers-db");
 
-        builder.AddMessaging<TransfersDbContext>(bus =>
+        builder.AddMessaging<TransfersDbContext>("transfers", bus =>
         {
             bus.AddSagaStateMachine<TransferStateMachine, TransferState>()
                 .EntityFrameworkRepository(repository =>

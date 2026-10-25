@@ -24,7 +24,7 @@ public static class DependencyInjection
             LocalCacheExpiration = TimeSpan.FromMinutes(1),
         });
 
-        builder.AddMessaging<AccountsDbContext>(bus =>
+        builder.AddMessaging<AccountsDbContext>("accounts", bus =>
         {
             bus.AddConsumer<AccountDebitedConsumer>();
             bus.AddConsumer<AccountCreditedConsumer>();
