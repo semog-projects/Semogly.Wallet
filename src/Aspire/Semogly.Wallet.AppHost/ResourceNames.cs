@@ -9,4 +9,5 @@ public static class ResourceNames
     public const string LedgerDb = "ledger-db";
     public const string RabbitMq = "rabbitmq";
     public const string Redis = "redis";
+    public const string AccountsApi = "accounts-api";
 }

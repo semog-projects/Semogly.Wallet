@@ -1,0 +1,5 @@
+root = true
+
+# Migrations do EF Core são geradas automaticamente: os analisadores não devem atuar nelas
+[**/Migrations/*.cs]
+generated_code = true

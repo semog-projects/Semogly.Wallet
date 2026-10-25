@@ -12,4 +12,8 @@
     <PackageReference Include="Aspire.Hosting.Redis" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\Services\Accounts\Semogly.Wallet.Accounts.Api\Semogly.Wallet.Accounts.Api.csproj" />
+  </ItemGroup>
+
 </Project>
