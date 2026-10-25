@@ -23,6 +23,24 @@ public class AppHostModelTests
     }
 
     [Fact]
+    public async Task AccountsApi_ShouldReferenceItsInfrastructure()
+    {
+        var builder = await DistributedApplicationTestingBuilder
+            .CreateAsync<Projects.Semogly_Wallet_AppHost>(TestContext.Current.CancellationToken);
+
+        var accountsApi = Assert.Single(builder.Resources.OfType<ProjectResource>(), r => r.Name == ResourceNames.AccountsApi);
+        var referencedResources = accountsApi.Annotations
+            .OfType<ResourceRelationshipAnnotation>()
+            .Where(a => a.Type == "Reference")
+            .Select(a => a.Resource.Name)
+            .ToList();
+
+        Assert.Contains(ResourceNames.AccountsDb, referencedResources);
+        Assert.Contains(ResourceNames.RabbitMq, referencedResources);
+        Assert.Contains(ResourceNames.Redis, referencedResources);
+    }
+
+    [Fact]
     public async Task AppHost_ShouldUseDatabasePerService()
     {
         var builder = await DistributedApplicationTestingBuilder

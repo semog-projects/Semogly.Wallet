@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Contratos de integração (eventos/comandos) compartilhados entre os microsserviços.
+       Não deve depender de nenhuma biblioteca de infraestrutura. -->
+
+</Project>
