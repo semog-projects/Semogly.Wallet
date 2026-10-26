@@ -231,7 +231,9 @@ informe-o na autenticação Bearer.
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `POST` | `/auth/token` | Emite JWT de desenvolvimento |
+| `POST` | `/auth/token` | Emite JWT de desenvolvimento (app mobile, Scalar) |
+| `POST` | `/bff/login` · `/bff/logout` | Sessão do web em cookie `HttpOnly` (BFF): o JWT fica no Gateway. Exigem o header `X-CSRF: 1` |
+| `GET` | `/bff/user` | Usuário e papéis da sessão atual |
 | `POST` | `/api/accounts` | Abre uma conta |
 | `GET` | `/api/accounts/{id}` · `/api/accounts/{id}/balance` | Dados e saldo da conta |
 | `POST` | `/api/ledger/accounts/{id}/deposits` | Depósito (papel `operator`) |

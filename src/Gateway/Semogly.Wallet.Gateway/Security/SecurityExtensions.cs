@@ -1,19 +1,28 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using Semogly.Wallet.Gateway.Bff;
 using Semogly.Wallet.Gateway.Realtime;
 
 namespace Semogly.Wallet.Gateway.Security;
 
 internal static class SecurityExtensions
 {
+    /// <summary>Escolhe o esquema por requisição: Bearer (app mobile, Scalar) ou cookie (web via BFF).</summary>
+    public const string BearerOrCookieScheme = "bearer-or-cookie";
+
     public static IServiceCollection AddGatewaySecurity(this IServiceCollection services, IConfiguration configuration)
     {
         var jwt = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
         services.AddSingleton(jwt);
+        services.AddSingleton<TokenIssuer>();
 
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        services.AddAuthentication(BearerOrCookieScheme)
+            .AddPolicyScheme(BearerOrCookieScheme, "Bearer ou cookie", options =>
+                options.ForwardDefaultSelector = context =>
+                    context.Request.Headers.Authorization.Count > 0 || IsHubRequestWithToken(context.Request)
+                        ? JwtBearerDefaults.AuthenticationScheme
+                        : BffDefaults.CookieScheme)
             .AddJwtBearer(options =>
             {
                 // Mantém os nomes curtos das claims (sub, role) em vez dos URIs do WS-Federation
@@ -24,7 +33,7 @@ internal static class SecurityExtensions
                     ValidAudience = jwt.Audience,
                     IssuerSigningKey = jwt.GetSigningKey(),
                     NameClaimType = JwtRegisteredClaimNames.Sub,
-                    RoleClaimType = "role",
+                    RoleClaimType = TokenIssuer.RoleClaim,
                     ClockSkew = TimeSpan.FromSeconds(30),
                 };
 
@@ -34,16 +43,16 @@ internal static class SecurityExtensions
                 {
                     OnMessageReceived = context =>
                     {
-                        if (context.HttpContext.Request.Path.StartsWithSegments(TransfersHub.Route) &&
-                            context.Request.Query.TryGetValue("access_token", out var token))
+                        if (IsHubRequestWithToken(context.Request))
                         {
-                            context.Token = token;
+                            context.Token = context.Request.Query[AccessTokenQueryParameter];
                         }
 
                         return Task.CompletedTask;
                     },
                 };
-            });
+            })
+            .AddBffCookie(jwt);
 
         services.AddAuthorizationBuilder()
             .AddPolicy(GatewayPolicies.Customer, policy => policy.RequireAuthenticatedUser())
@@ -52,17 +61,19 @@ internal static class SecurityExtensions
         return services;
     }
 
+    private const string AccessTokenQueryParameter = "access_token";
+
+    private static bool IsHubRequestWithToken(HttpRequest request) =>
+        request.Path.StartsWithSegments(TransfersHub.Route) && request.Query.ContainsKey(AccessTokenQueryParameter);
+
     public sealed record TokenRequest(string Username, string[]? Roles);
 
     public sealed record TokenResponse(string AccessToken, string TokenType, int ExpiresIn);
 
-    /// <summary>
-    /// Emissor de tokens apenas para desenvolvimento. Em produção, o Gateway só valida tokens
-    /// emitidos por um Identity Provider (Keycloak, Entra ID etc.).
-    /// </summary>
+    /// <summary>Emissão de token Bearer para clientes que não usam o BFF (app mobile, Scalar). Só em Development.</summary>
     public static IEndpointRouteBuilder MapDevelopmentTokenEndpoint(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/auth/token", (TokenRequest request, JwtOptions jwt, TimeProvider clock) =>
+        app.MapPost("/auth/token", (TokenRequest request, TokenIssuer issuer, JwtOptions jwt) =>
             {
                 if (string.IsNullOrWhiteSpace(request.Username))
                 {
@@ -72,22 +83,8 @@ internal static class SecurityExtensions
                     });
                 }
 
-                var claims = new List<Claim> { new(JwtRegisteredClaimNames.Sub, request.Username) };
-                claims.AddRange((request.Roles ?? []).Select(role => new Claim("role", role)));
-
-                var now = clock.GetUtcNow();
-                var token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
-                {
-                    Issuer = jwt.Issuer,
-                    Audience = jwt.Audience,
-                    Subject = new ClaimsIdentity(claims),
-                    IssuedAt = now.UtcDateTime,
-                    NotBefore = now.UtcDateTime,
-                    Expires = now.Add(jwt.TokenLifetime).UtcDateTime,
-                    SigningCredentials = new SigningCredentials(jwt.GetSigningKey(), SecurityAlgorithms.HmacSha256),
-                });
-
-                return Results.Ok(new TokenResponse(token, "Bearer", (int)jwt.TokenLifetime.TotalSeconds));
+                var token = issuer.Issue(request.Username, request.Roles);
+                return Results.Ok(new TokenResponse(token.AccessToken, "Bearer", (int)jwt.TokenLifetime.TotalSeconds));
             })
             .AllowAnonymous()
             .WithTags("Auth")
