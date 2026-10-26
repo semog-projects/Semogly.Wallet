@@ -1,0 +1,332 @@
+# Semogly Wallet
+
+[![CI](https://github.com/semog-projects/Semogly.Wallet/actions/workflows/ci.yml/badge.svg)](https://github.com/semog-projects/Semogly.Wallet/actions/workflows/ci.yml)
+![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)
+![Aspire](https://img.shields.io/badge/Aspire-13-512BD4)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+
+Carteira digital construída com **microsserviços em .NET 10**, mensageria e os padrões que sistemas financeiros
+usam na prática: **Saga** com compensação, **Transactional Outbox/Inbox**, **Event Sourcing** com
+**partidas dobradas**, antifraude em Redis e um **API Gateway** com JWT e rate limiting.
+
+Tudo sobe com um único comando via **.NET Aspire**: bancos, broker, cache, os cinco serviços, o Gateway e o
+dashboard de observabilidade.
+
+---
+
+## Sumário
+
+- [Arquitetura](#arquitetura)
+- [Fluxo de uma transferência](#fluxo-de-uma-transferência)
+- [Livro-razão com partidas dobradas](#livro-razão-com-partidas-dobradas)
+- [Stack](#stack)
+- [Como rodar](#como-rodar)
+- [Testando a API](#testando-a-api)
+- [Testes](#testes)
+- [Estrutura do repositório](#estrutura-do-repositório)
+- [Decisões de arquitetura (ADRs)](#decisões-de-arquitetura-adrs)
+- [Próximos passos](#próximos-passos)
+
+---
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+    client([Cliente]) -->|HTTPS + JWT| gw
+
+    subgraph edge[Borda]
+        gw[API Gateway<br/>YARP · JWT · Rate limiting · Scalar]
+    end
+
+    subgraph services[Microsserviços]
+        acc[Accounts<br/>contas e saldo]
+        trf[Transfers<br/>Saga de transferência]
+        led[Ledger<br/>Event Sourcing]
+        frd[Fraud<br/>regras antifraude]
+        ntf[Notifications<br/>e-mails]
+    end
+
+    gw --> acc & trf & led & frd & ntf
+
+    mq{{RabbitMQ<br/>MassTransit}}
+    acc & trf & led & frd & ntf <-->|eventos e comandos| mq
+
+    acc --- accdb[(accounts-db)]
+    acc --- redis[(Redis)]
+    trf --- trfdb[(transfers-db)]
+    led --- leddb[(ledger-db<br/>Marten)]
+    frd --- redis
+    ntf --- ntfdb[(notifications-db)]
+```
+
+| Serviço | Responsabilidade | Armazenamento |
+|---|---|---|
+| **Accounts** | Abertura de contas e consulta de saldo (projeção dos lançamentos do Ledger) | Postgres + cache híbrido (memória + Redis) |
+| **Transfers** | Recebe pedidos de transferência e orquestra a **Saga** | Postgres (transferências + estado da saga) |
+| **Ledger** | Livro-razão: fonte da verdade do dinheiro, com **Event Sourcing** e partidas dobradas | Postgres via **Marten** (event store) |
+| **Fraud** | Limite por transação, limite diário e velocity check | Redis (script Lua atômico) |
+| **Notifications** | Avisa o titular sobre conta aberta e transferências | Postgres (contatos + histórico) |
+| **Gateway** | Ponto de entrada único: roteamento, autenticação, rate limiting e documentação agregada | — |
+
+Cada serviço é dono do seu banco (**database-per-service**) e segue **Clean Architecture** em quatro projetos
+(`Domain`, `Application`, `Infrastructure`, `Api`). Testes de arquitetura garantem a regra de dependência.
+
+---
+
+## Fluxo de uma transferência
+
+`POST /transfers` grava a transferência e publica `TransferRequested` **na mesma transação** (outbox).
+A partir daí a saga conduz o processo, e a API responde `202 Accepted` imediatamente.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor C as Cliente
+    participant T as Transfers (Saga)
+    participant F as Fraud
+    participant L as Ledger
+    participant A as Accounts
+    participant N as Notifications
+
+    C->>T: POST /transfers (Idempotency-Key)
+    T-->>C: 202 Accepted (Pending)
+    T->>F: CheckTransferFraud
+    F-->>T: TransferFraudCheckApproved
+    T->>L: DebitAccount (origem)
+    L-->>T: AccountDebited
+    L-)A: AccountDebited (atualiza saldo)
+    T->>L: CreditAccount (destino)
+
+    alt crédito efetivado
+        L-->>T: AccountCredited
+        L-)A: AccountCredited
+        T-)N: TransferCompleted
+    else crédito recusado → compensação
+        L-->>T: AccountCreditRejected
+        T->>L: CreditAccount (estorno na origem)
+        L-->>T: AccountCredited
+        T-)N: TransferFailed ("Estornada: …")
+    end
+
+    C->>T: GET /transfers/{id}
+    T-->>C: Completed | Failed
+```
+
+Estados da saga: `AwaitingFraudCheck → AwaitingDebit → AwaitingCredit → (AwaitingRefund) → finalizada`.
+Recusas do antifraude ou por saldo insuficiente encerram a saga como `Failed` sem mover dinheiro.
+
+**Garantias:**
+
+- **Atomicidade entre dados e mensagens:** Transactional Outbox. Nenhum evento é publicado sem o dado
+  correspondente gravado, e vice-versa.
+- **Idempotência ponta a ponta:**
+  - `Idempotency-Key` obrigatória na API.
+  - Inbox (deduplicação por `MessageId`) nos consumers.
+  - Chaves determinísticas no antifraude e nas notificações.
+- **Concorrência:** concorrência otimista na saga e nos agregados (`xmin` no Postgres, versão do stream no Marten).
+- **Falhas transitórias:** retry com backoff; esgotadas as tentativas, a mensagem vai para a fila `_error` (dead-letter).
+
+---
+
+## Livro-razão com partidas dobradas
+
+O **Ledger** não guarda "o saldo": guarda **todos os lançamentos**, imutáveis, como eventos no Marten.
+O saldo é consequência deles. Todo lançamento tem contrapartida, então **a soma de todas as contas é sempre zero**.
+
+Duas contas internas tornam isso possível:
+
+- **CashIn:** contrapartida dos depósitos. Seu saldo negativo é o total que entrou na carteira.
+- **Clearing:** dinheiro em trânsito entre o débito e o crédito da saga. Volta a zero quando as transferências terminam.
+
+| Operação | Débito | Crédito |
+|---|---|---|
+| Depósito de 500 em Ana | CashIn −500 | Ana +500 |
+| Transferência de 200 (débito) | Ana −200 | Clearing +200 |
+| Transferência de 200 (crédito) | Clearing −200 | Bruno +200 |
+| **Saldos finais** | CashIn **−500**, Clearing **0** | Ana **300**, Bruno **200** → soma **0** |
+
+A escrita no Marten e o outbox/inbox do MassTransit (EF Core) compartilham **a mesma transação do Postgres**:
+o lançamento, as mensagens publicadas e a deduplicação são confirmados juntos ([ADR 0006](docs/adr/0006-transacao-compartilhada-marten-ef.md)).
+
+---
+
+## Stack
+
+| Área | Tecnologia |
+|---|---|
+| Plataforma | .NET 10, C# (latest), minimal APIs, validação nativa, ProblemDetails |
+| Orquestração local e observabilidade | .NET Aspire 13 (dashboard, OpenTelemetry, service discovery, health checks) |
+| Mensageria | RabbitMQ 4 + MassTransit 8 (Saga state machine, Outbox/Inbox, retry, dead-letter) |
+| Persistência | PostgreSQL 18 + EF Core 10 · Marten 9 (event store e projeções) |
+| Cache e contadores | Redis 8 · HybridCache · scripts Lua |
+| Borda | YARP · JWT Bearer · Rate Limiting · Scalar (OpenAPI agregado) |
+| Testes | xUnit v3 · MassTransit Test Harness · Testcontainers · WebApplicationFactory |
+| Qualidade | Central Package Management · analisadores com `TreatWarningsAsErrors` · testes de arquitetura · GitHub Actions |
+
+---
+
+## Como rodar
+
+**Pré-requisitos:** [.NET 10 SDK](https://dotnet.microsoft.com/download) e Docker em execução.
+
+```bash
+git clone https://github.com/semog-projects/Semogly.Wallet.git
+cd Semogly.Wallet
+dotnet run --project src/Aspire/Semogly.Wallet.AppHost
+```
+
+O AppHost sobe Postgres (com pgAdmin), RabbitMQ (com painel de gerenciamento), Redis, os cinco serviços e o
+Gateway. As migrations e o schema do Marten são aplicados automaticamente em Development.
+
+| O quê | Onde |
+|---|---|
+| Dashboard do Aspire (logs, traces, métricas) | URL exibida no terminal (padrão `https://localhost:17110`) |
+| **Gateway + Scalar com toda a API** | `https://localhost:7100/scalar` |
+| RabbitMQ e pgAdmin | Links no dashboard do Aspire |
+
+> Os containers usam `ContainerLifetime.Persistent`: continuam rodando entre execuções e os dados são preservados
+> em volumes.
+
+---
+
+## Testando a API
+
+Todas as rotas passam pelo Gateway em `https://localhost:7100/api/...` e exigem JWT (os exemplos usam `curl` e `jq`). Em Development, o próprio
+Gateway emite tokens:
+
+```bash
+GW=https://localhost:7100
+
+# Token de cliente e token de operador (depósitos exigem o papel "operator")
+TOKEN=$(curl -sk -X POST $GW/auth/token -H "content-type: application/json" \
+  -d '{"username":"ana"}' | jq -r .accessToken)
+OPS=$(curl -sk -X POST $GW/auth/token -H "content-type: application/json" \
+  -d '{"username":"backoffice","roles":["operator"]}' | jq -r .accessToken)
+
+# Abrir duas contas
+ANA=$(curl -sk -X POST $GW/api/accounts -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
+  -d '{"ownerName":"Ana Souza","document":"12345678909","email":"ana@email.com"}' | jq -r .id)
+BRUNO=$(curl -sk -X POST $GW/api/accounts -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
+  -d '{"ownerName":"Bruno Lima","document":"98765432100","email":"bruno@email.com"}' | jq -r .id)
+
+# Depósito (simula a entrada de um PIX/boleto)
+curl -sk -X POST $GW/api/ledger/accounts/$ANA/deposits -H "Authorization: Bearer $OPS" \
+  -H "content-type: application/json" -d '{"amount":500}'
+
+# Transferência (assíncrona: 202 + acompanhar pelo GET)
+TRANSFER=$(curl -sk -X POST $GW/api/transfers -H "Authorization: Bearer $TOKEN" \
+  -H "Idempotency-Key: $(uuidgen)" -H "content-type: application/json" \
+  -d "{\"sourceAccountId\":\"$ANA\",\"destinationAccountId\":\"$BRUNO\",\"amount\":200}" | jq -r .id)
+
+curl -sk $GW/api/transfers/$TRANSFER -H "Authorization: Bearer $TOKEN"                 # Completed
+curl -sk $GW/api/ledger/accounts/$ANA/statement -H "Authorization: Bearer $TOKEN"      # extrato
+curl -sk $GW/api/notifications/accounts/$BRUNO -H "Authorization: Bearer $TOKEN"       # "Você recebeu R$ 200,00"
+```
+
+Também dá para fazer tudo pelo **Scalar** em `https://localhost:7100/scalar`: gere o token em `/auth/token` e
+informe-o na autenticação Bearer.
+
+### Principais endpoints
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/auth/token` | Emite JWT de desenvolvimento |
+| `POST` | `/api/accounts` | Abre uma conta |
+| `GET` | `/api/accounts/{id}` · `/api/accounts/{id}/balance` | Dados e saldo da conta |
+| `POST` | `/api/ledger/accounts/{id}/deposits` | Depósito (papel `operator`) |
+| `GET` | `/api/ledger/accounts/{id}/statement` | Extrato paginado |
+| `POST` | `/api/transfers` | Solicita transferência (`Idempotency-Key` obrigatória; até 10 por minuto por usuário) |
+| `GET` | `/api/transfers/{id}` | Status da transferência |
+| `GET` | `/api/fraud/accounts/{id}/daily-usage` | Uso do limite diário |
+| `GET` | `/api/notifications/accounts/{id}` | Notificações enviadas |
+
+### Regras antifraude (configuráveis em `FraudPolicy`)
+
+| Regra | Padrão |
+|---|---|
+| Limite por transação | R$ 5.000 |
+| Limite diário por conta (fuso de Brasília) | R$ 10.000 |
+| Velocity | 5 transferências por minuto |
+
+> Para ver o **retry e o dead-letter** em ação, abra uma conta com e-mail `@falha.test`: o provedor fake de e-mail
+> falha e a mensagem termina na fila `notifications-account-created_error` após as novas tentativas.
+
+---
+
+## Testes
+
+```bash
+dotnet test
+```
+
+| Projeto | O que cobre |
+|---|---|
+| `*.UnitTests` | Domínio, handlers (com fakes) e a **Saga** no test harness do MassTransit |
+| `ArchitectureTests` | Regra de dependência da Clean Architecture nos cinco serviços |
+| `AppHost.Tests` | Modelo de recursos do Aspire (sem subir containers) |
+| `IntegrationTests` | **Testcontainers** (Postgres, RabbitMQ, Redis) + os cinco serviços em memória: fluxo completo de transferência (sucesso, compensação, saldo insuficiente, antifraude, idempotência concorrente), atomicidade Marten + EF e o script Lua do antifraude |
+
+Os testes de integração precisam de Docker. No CI (GitHub Actions) toda a suíte roda a cada pull request.
+
+---
+
+## Estrutura do repositório
+
+```
+src/
+├── Aspire/
+│   ├── Semogly.Wallet.AppHost          # orquestração local (containers, serviços, parâmetros)
+│   └── Semogly.Wallet.ServiceDefaults  # OpenTelemetry, health checks, resiliência, OpenAPI
+├── BuildingBlocks/
+│   ├── Semogly.Wallet.SharedKernel     # Result/Error, ICommandHandler/IQueryHandler, DomainException
+│   ├── Semogly.Wallet.Contracts        # eventos e comandos de integração
+│   └── Semogly.Wallet.Messaging        # MassTransit + RabbitMQ + Outbox/Inbox
+├── Gateway/
+│   └── Semogly.Wallet.Gateway          # YARP, JWT, rate limiting, Scalar agregado
+└── Services/
+    ├── Accounts/       ┐
+    ├── Transfers/      │ cada um com Domain · Application · Infrastructure · Api
+    ├── Ledger/         │
+    ├── Fraud/          │
+    └── Notifications/  ┘
+tests/
+├── Semogly.Wallet.{Serviço}.UnitTests
+├── Semogly.Wallet.ArchitectureTests
+├── Semogly.Wallet.AppHost.Tests
+└── Semogly.Wallet.IntegrationTests
+docs/adr/                               # decisões de arquitetura
+```
+
+---
+
+## Decisões de arquitetura (ADRs)
+
+| # | Decisão |
+|---|---|
+| [0001](docs/adr/0001-microsservicos-com-aspire.md) | Microsserviços orquestrados localmente com .NET Aspire |
+| [0002](docs/adr/0002-masstransit-rabbitmq-outbox.md) | MassTransit 8 + RabbitMQ com Transactional Outbox/Inbox |
+| [0003](docs/adr/0003-saga-orquestrada.md) | Saga orquestrada para transferências |
+| [0004](docs/adr/0004-clean-architecture-sem-mediatr.md) | Clean Architecture por serviço, com handlers próprios (sem MediatR) |
+| [0005](docs/adr/0005-ledger-event-sourcing-partidas-dobradas.md) | Ledger com Event Sourcing (Marten) e partidas dobradas |
+| [0006](docs/adr/0006-transacao-compartilhada-marten-ef.md) | Transação compartilhada entre Marten e o outbox do EF Core |
+| [0007](docs/adr/0007-antifraude-redis-lua.md) | Regras antifraude com estado no Redis via script Lua atômico |
+| [0008](docs/adr/0008-gateway-yarp-jwt.md) | API Gateway com YARP, JWT e rate limiting |
+| [0009](docs/adr/0009-testes-de-integracao.md) | Testes de integração com Testcontainers e serviços em memória |
+
+---
+
+## Próximos passos
+
+- **Identidade e autorização:**
+  - Trocar o emissor de tokens de desenvolvimento por um Identity Provider (Keycloak ou Entra ID).
+  - Verificar se a conta da rota pertence ao usuário do token.
+- **Defesa em profundidade:** os serviços também validarem o JWT, além do Gateway.
+- **Ledger:** snapshots dos agregados, para evitar ler o stream inteiro a cada operação.
+- **Depósitos:** `Idempotency-Key` no endpoint.
+- **Saga:** timeout para respostas que não chegam, como o antifraude indisponível.
+- **Deploy:** `azd` ou Kubernetes a partir do manifesto do Aspire.
+
+## Licença
+
+[MIT](LICENSE)
