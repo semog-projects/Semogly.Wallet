@@ -3,6 +3,8 @@ import { BrowserRouter, Route, Routes } from 'react-router'
 import { ApiError } from '@/api/client'
 import { RequireOperator } from '@/auth/RequireOperator'
 import { AppLayout } from '@/layout/AppLayout'
+import { AccountDetailPage } from '@/pages/accounts/AccountDetailPage'
+import { AccountsPage } from '@/pages/accounts/AccountsPage'
 import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { OverviewPage } from '@/pages/OverviewPage'
@@ -29,7 +31,8 @@ export function AppRoutes() {
         }
       >
         <Route index element={<OverviewPage />} />
-        <Route path="accounts" element={<ComingSoonPage title="Contas" issue={25} />} />
+        <Route path="accounts" element={<AccountsPage />} />
+        <Route path="accounts/:id" element={<AccountDetailPage />} />
         <Route path="transfers" element={<ComingSoonPage title="Transferências" issue={26} />} />
       </Route>
     </Routes>
