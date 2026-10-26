@@ -1,0 +1,26 @@
+# Clientes Dart gerados a partir do OpenAPI publicado pelo Gateway (uma pasta por serviço).
+# Com o AppHost rodando: dart run swagger_parser && dart run build_runner build -d
+swagger_parser:
+  language: dart
+  json_serializer: json_serializable
+  root_client: false
+  put_clients_in_folder: true
+  enums_to_json: true
+  unknown_enum_value: false
+  mark_files_as_generated: true
+  schemes:
+    - schema_url: http://localhost:5100/openapi/accounts.json
+      name: accounts
+      output_directory: lib/core/api/generated/accounts
+    - schema_url: http://localhost:5100/openapi/transfers.json
+      name: transfers
+      output_directory: lib/core/api/generated/transfers
+    - schema_url: http://localhost:5100/openapi/ledger.json
+      name: ledger
+      output_directory: lib/core/api/generated/ledger
+    - schema_url: http://localhost:5100/openapi/fraud.json
+      name: fraud
+      output_directory: lib/core/api/generated/fraud
+    - schema_url: http://localhost:5100/openapi/notifications.json
+      name: notifications
+      output_directory: lib/core/api/generated/notifications
