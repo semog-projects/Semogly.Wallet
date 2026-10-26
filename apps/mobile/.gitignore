@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Schemas OpenAPI baixados pelo swagger_parser durante a geração dos clientes
+/*.json
