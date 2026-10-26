@@ -5,6 +5,7 @@
 // Clients
 export 'clients/accounts_client.dart';
 // Data classes
+export 'models/account_lookup_response.dart';
 export 'models/account_response.dart';
 export 'models/account_status.dart';
 export 'models/balance_response.dart';

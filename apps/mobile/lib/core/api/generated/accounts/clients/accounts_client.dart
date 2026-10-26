@@ -5,6 +5,7 @@
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
 
+import '../models/account_lookup_response.dart';
 import '../models/account_response.dart';
 import '../models/balance_response.dart';
 import '../models/create_account_request.dart';
@@ -30,6 +31,14 @@ abstract class AccountsClient {
     @Query('page') int? page = 1,
     @Query('pageSize') int? pageSize = 20,
     @Query('search') String? search,
+  });
+
+  /// Encontra a conta de destino pelo e-mail do titular (chave de transferência).
+  ///
+  /// Exige JWT. Retorna apenas o id e o nome mascarado, para o pagador confirmar o destinatário.
+  @GET('/accounts/lookup')
+  Future<AccountLookupResponse> lookupAccount({
+    @Query('email') required String email,
   });
 
   /// Contas do titular autenticado (e-mail do token).

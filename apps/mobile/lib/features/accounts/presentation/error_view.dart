@@ -1,5 +1,6 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/api/api_error.dart';
 
 /// Mensagem de erro amigável com ação de tentar de novo.
 class ErrorView extends StatelessWidget {
@@ -18,7 +19,7 @@ class ErrorView extends StatelessWidget {
           children: [
             Icon(Icons.cloud_off_rounded, size: 40, color: Theme.of(context).colorScheme.error),
             const SizedBox(height: 12),
-            Text(messageFor(error), textAlign: TextAlign.center),
+            Text(describeApiError(error), textAlign: TextAlign.center),
             const SizedBox(height: 12),
             OutlinedButton(onPressed: onRetry, child: const Text('Tentar de novo')),
           ],
@@ -26,11 +27,4 @@ class ErrorView extends StatelessWidget {
       ),
     );
   }
-
-  static String messageFor(Object error) => switch (error) {
-    DioException(type: DioExceptionType.connectionError || DioExceptionType.connectionTimeout) =>
-      'Sem conexão com o servidor.',
-    DioException(response: Response(statusCode: 429)) => 'Muitas requisições. Aguarde alguns segundos.',
-    _ => 'Não foi possível carregar os dados.',
-  };
 }
