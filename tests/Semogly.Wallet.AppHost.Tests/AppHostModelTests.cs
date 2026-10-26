@@ -50,6 +50,21 @@ public class AppHostModelTests
     }
 
     [Fact]
+    public async Task Backoffice_ShouldBeAViteAppReferencingTheGateway()
+    {
+        var builder = await DistributedApplicationTestingBuilder
+            .CreateAsync<Projects.Semogly_Wallet_AppHost>(TestContext.Current.CancellationToken);
+
+        var backoffice = Assert.Single(builder.Resources, r => r.Name == ResourceNames.Backoffice);
+        var references = backoffice.Annotations
+            .OfType<ResourceRelationshipAnnotation>()
+            .Where(a => a.Type == "Reference")
+            .Select(a => a.Resource.Name);
+
+        Assert.Contains(ResourceNames.Gateway, references);
+    }
+
+    [Fact]
     public async Task AppHost_ShouldUseDatabasePerService()
     {
         var builder = await DistributedApplicationTestingBuilder

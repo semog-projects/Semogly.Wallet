@@ -17,4 +17,5 @@ public static class ResourceNames
     public const string NotificationsApi = "notifications-api";
     public const string Gateway = "gateway";
     public const string JwtSigningKey = "jwt-signing-key";
+    public const string Backoffice = "backoffice";
 }

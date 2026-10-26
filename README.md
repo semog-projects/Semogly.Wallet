@@ -160,7 +160,8 @@ o lançamento, as mensagens publicadas e a deduplicação são confirmados junto
 | Mensageria | RabbitMQ 4 + MassTransit 8 (Saga state machine, Outbox/Inbox, retry, dead-letter) |
 | Persistência | PostgreSQL 18 + EF Core 10 · Marten 9 (event store e projeções) |
 | Cache e contadores | Redis 8 · HybridCache · scripts Lua |
-| Borda | YARP · JWT Bearer · Rate Limiting · Scalar (OpenAPI agregado) |
+| Borda | YARP · JWT Bearer · BFF com cookie · Rate Limiting · SignalR · Scalar (OpenAPI agregado) |
+| Backoffice web | React 19 · TypeScript · Vite · TanStack Query · React Router · Tailwind + shadcn/ui · cliente gerado do OpenAPI (openapi-fetch) · Vitest |
 | Testes | xUnit v3 · MassTransit Test Harness · Testcontainers · WebApplicationFactory |
 | Qualidade | Central Package Management · analisadores com `TreatWarningsAsErrors` · testes de arquitetura · GitHub Actions |
 
@@ -168,7 +169,7 @@ o lançamento, as mensagens publicadas e a deduplicação são confirmados junto
 
 ## Como rodar
 
-**Pré-requisitos:** [.NET 10 SDK](https://dotnet.microsoft.com/download) e Docker em execução.
+**Pré-requisitos:** [.NET 10 SDK](https://dotnet.microsoft.com/download), [Node.js 24](https://nodejs.org) (backoffice web) e Docker em execução.
 
 ```bash
 git clone https://github.com/semog-projects/Semogly.Wallet.git
@@ -176,12 +177,14 @@ cd Semogly.Wallet
 dotnet run --project src/Aspire/Semogly.Wallet.AppHost
 ```
 
-O AppHost sobe Postgres (com pgAdmin), RabbitMQ (com painel de gerenciamento), Redis, os cinco serviços e o
-Gateway. As migrations e o schema do Marten são aplicados automaticamente em Development.
+O AppHost sobe Postgres (com pgAdmin), RabbitMQ (com painel de gerenciamento), Redis, os cinco serviços, o
+Gateway e o **backoffice web** (React + Vite, com `npm install` automático). As migrations e o schema do Marten são
+aplicados automaticamente em Development.
 
 | O quê | Onde |
 |---|---|
 | Dashboard do Aspire (logs, traces, métricas) | URL exibida no terminal (padrão `https://localhost:17110`) |
+| **Backoffice web** (React) | Link do recurso `backoffice` no dashboard. Login de desenvolvimento com "Entrar como operador" |
 | **Gateway + Scalar com toda a API** | `https://localhost:7100/scalar` |
 | RabbitMQ e pgAdmin | Links no dashboard do Aspire |
 
