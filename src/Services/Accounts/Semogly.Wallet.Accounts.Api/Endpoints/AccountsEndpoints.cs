@@ -6,6 +6,7 @@ using Semogly.Wallet.Accounts.Application.Accounts.CreateAccount;
 using Semogly.Wallet.Accounts.Application.Accounts.GetAccount;
 using Semogly.Wallet.Accounts.Application.Accounts.GetBalance;
 using Semogly.Wallet.Accounts.Application.Accounts.GetMyAccounts;
+using Semogly.Wallet.Accounts.Application.Accounts.LookupAccount;
 using Semogly.Wallet.Accounts.Application.Accounts.SearchAccounts;
 using Semogly.Wallet.SharedKernel.Messaging;
 using Semogly.Wallet.SharedKernel.Pagination;
@@ -39,6 +40,16 @@ internal static class AccountsEndpoints
             .WithDescription("No Gateway, exige o papel operator. Sem termo, lista as contas mais recentes.")
             .Produces<PagedResponse<AccountResponse>>()
             .ProducesValidationProblem();
+
+        group.MapGet("/lookup", LookupAccountAsync)
+            .WithName("LookupAccount")
+            .WithSummary("Encontra a conta de destino pelo e-mail do titular (chave de transferência)")
+            .WithDescription("Exige JWT. Retorna apenas o id e o nome mascarado, para o pagador confirmar o destinatário.")
+            .RequireAuthorization()
+            .Produces<AccountLookupResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapGet("/me", GetMyAccountsAsync)
             .WithName("GetMyAccounts")
@@ -86,6 +97,16 @@ internal static class AccountsEndpoints
         [Range(1, 100)] int pageSize = 20)
     {
         var result = await handler.HandleAsync(new SearchAccountsQuery(search, page, pageSize), cancellationToken);
+
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
+    }
+
+    private static async Task<IResult> LookupAccountAsync(
+        [Required, EmailAddress, StringLength(254)] string email,
+        IQueryHandler<LookupAccountQuery, AccountLookupResponse> handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(new LookupAccountQuery(email), cancellationToken);
 
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
     }

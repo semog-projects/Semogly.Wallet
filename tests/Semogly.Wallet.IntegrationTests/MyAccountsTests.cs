@@ -68,6 +68,48 @@ public sealed class MyAccountsTests(WalletFixture fixture)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Lookup_ByRecipientEmail_ShouldReturnIdAndMaskedName()
+    {
+        var recipient = $"Recebedor Lookup{Guid.NewGuid():N}";
+        var accountId = await _api.OpenAccountAsync(recipient);
+        var email = $"{recipient.ToLowerInvariant().Replace(' ', '.')}@email.com";
+
+        var response = await LookupAsync(email, await TokenForAsync("pagador@email.com"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
+        Assert.Equal(accountId, body.RootElement.GetProperty("accountId").GetGuid());
+        Assert.Equal("Recebedor L.", body.RootElement.GetProperty("displayName").GetString());
+    }
+
+    [Fact]
+    public async Task Lookup_UnknownEmail_ShouldBeNotFound()
+    {
+        var response = await LookupAsync($"{Guid.NewGuid():N}@email.com", await TokenForAsync("pagador@email.com"));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Lookup_WithoutToken_ShouldBeUnauthorized()
+    {
+        var response = await LookupAsync("alguem@email.com", accessToken: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    private async Task<HttpResponseMessage> LookupAsync(string email, string? accessToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/accounts/lookup?email={Uri.EscapeDataString(email)}");
+        if (accessToken is not null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        return await fixture.Accounts.CreateClient().SendAsync(request, Ct);
+    }
+
     private async Task<string> TokenForAsync(string username)
     {
         var response = await fixture.Gateway.CreateClient().PostAsJsonAsync("/auth/token", new { username }, Ct);

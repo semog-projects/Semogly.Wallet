@@ -6,6 +6,9 @@ import '../features/accounts/presentation/account_page.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/session_controller.dart';
 import '../features/home/presentation/home_page.dart';
+import '../features/transfers/presentation/notifications_page.dart';
+import '../features/transfers/presentation/transfer_page.dart';
+import '../features/transfers/presentation/transfer_status_page.dart';
 
 abstract final class Routes {
   static const splash = '/splash';
@@ -48,6 +51,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/accounts/:id',
         builder: (_, state) => AccountPage(accountId: state.pathParameters['id']!),
+        routes: [
+          GoRoute(
+            path: 'transfer',
+            builder: (_, state) => TransferPage(sourceAccountId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: 'notifications',
+            builder: (_, state) => NotificationsPage(accountId: state.pathParameters['id']!),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/transfers/:transferId',
+        builder: (_, state) => TransferStatusPage(
+          args: (
+            transferId: state.pathParameters['transferId']!,
+            accountId: state.uri.queryParameters['account']!,
+            amount: double.parse(state.uri.queryParameters['amount']!),
+          ),
+        ),
       ),
     ],
   );

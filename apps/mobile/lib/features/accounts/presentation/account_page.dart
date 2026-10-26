@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/format/formatters.dart';
+import '../../../core/realtime/transfer_updates.dart';
 import '../domain/models.dart';
 import 'accounts_providers.dart';
 import 'error_view.dart';
@@ -23,8 +25,33 @@ class AccountPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statement = ref.watch(statementProvider(accountId));
 
+    // Mantém o hub conectado enquanto a conta estiver aberta (inclusive sob as telas de transferência)
+    // e atualiza saldo, limite e extrato quando uma transferência envolvendo a conta termina
+    ref.listen(accountUpdatesProvider(accountId), (_, next) {
+      if (next.value?.progress case TransferProgress.completed || TransferProgress.failed) {
+        ref
+          ..invalidate(statementProvider(accountId))
+          ..invalidate(dailyUsageProvider(accountId))
+          ..invalidate(myAccountsProvider);
+      }
+    });
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Conta')),
+      appBar: AppBar(
+        title: const Text('Conta'),
+        actions: [
+          IconButton(
+            tooltip: 'Notificações',
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () => context.push('/accounts/$accountId/notifications'),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/accounts/$accountId/transfer'),
+        icon: const Icon(Icons.send_rounded),
+        label: const Text('Transferir'),
+      ),
       body: RefreshIndicator(
         onRefresh: () => _refresh(ref),
         child: statement.when(
@@ -32,7 +59,8 @@ class AccountPage extends ConsumerWidget {
           error: (error, _) => ErrorView(error: error, onRetry: () => ref.invalidate(statementProvider(accountId))),
           data: (data) => ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+            // Espaço para o botão flutuante não cobrir o fim do extrato
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             children: [
               _BalanceCard(balance: data.balance),
               const SizedBox(height: 12),
