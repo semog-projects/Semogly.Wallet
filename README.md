@@ -240,6 +240,9 @@ informe-o na autenticação Bearer.
 | `GET` | `/api/transfers/{id}` | Status da transferência |
 | `GET` | `/api/fraud/accounts/{id}/daily-usage` | Uso do limite diário |
 | `GET` | `/api/notifications/accounts/{id}` | Notificações enviadas |
+| `GET` | `/api/accounts?search=` | Busca de contas por nome, e-mail ou CPF (backoffice, papel `operator`) |
+| `GET` | `/api/transfers?status=&accountId=&from=&to=` | Listagem paginada de transferências (backoffice, papel `operator`) |
+| `GET` | `/api/ledger/book` | Visão do livro: CashIn, Clearing, clientes e total, que deve ser zero (papel `operator`) |
 | `WS` | `/hubs/transfers` | SignalR: `SubscribeToAccount(id)` e o evento `TransferUpdated` (status em tempo real; `operator` recebe todas) |
 
 ### Regras antifraude (configuráveis em `FraudPolicy`)

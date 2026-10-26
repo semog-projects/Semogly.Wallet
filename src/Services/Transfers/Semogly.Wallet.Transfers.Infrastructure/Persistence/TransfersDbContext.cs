@@ -32,6 +32,12 @@ public sealed class TransfersDbContext(DbContextOptions<TransfersDbContext> opti
             transfer.Property(t => t.Amount).HasPrecision(18, 2);
             transfer.Property(t => t.IdempotencyKey).HasMaxLength(Transfer.IdempotencyKeyMaxLength);
             transfer.HasIndex(t => t.IdempotencyKey).IsUnique();
+
+            // Consultas do backoffice: mais recentes primeiro, por status e por conta envolvida
+            transfer.HasIndex(t => t.CreatedAt);
+            transfer.HasIndex(t => new { t.Status, t.CreatedAt });
+            transfer.HasIndex(t => t.SourceAccountId);
+            transfer.HasIndex(t => t.DestinationAccountId);
             transfer.Property(t => t.Status).HasConversion<string>().HasMaxLength(20);
             transfer.Property(t => t.FailureReason).HasMaxLength(500);
             transfer.Property(t => t.Version).IsRowVersion();

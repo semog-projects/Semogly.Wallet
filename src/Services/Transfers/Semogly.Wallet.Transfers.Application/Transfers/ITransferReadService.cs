@@ -1,3 +1,6 @@
+using Semogly.Wallet.SharedKernel.Pagination;
+using Semogly.Wallet.Transfers.Application.Transfers.ListTransfers;
+
 namespace Semogly.Wallet.Transfers.Application.Transfers;
 
 /// <summary>
@@ -7,4 +10,6 @@ namespace Semogly.Wallet.Transfers.Application.Transfers;
 public interface ITransferReadService
 {
     Task<TransferResponse?> GetByIdAsync(Guid transferId, CancellationToken cancellationToken);
+
+    Task<PagedResponse<TransferResponse>> ListAsync(TransferFilter filter, CancellationToken cancellationToken);
 }

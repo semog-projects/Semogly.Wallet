@@ -234,8 +234,16 @@ namespace Semogly.Wallet.Transfers.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("DestinationAccountId");
+
                     b.HasIndex("IdempotencyKey")
                         .IsUnique();
+
+                    b.HasIndex("SourceAccountId");
+
+                    b.HasIndex("Status", "CreatedAt");
 
                     b.ToTable("transfers", (string)null);
                 });

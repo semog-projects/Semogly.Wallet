@@ -4,7 +4,9 @@ using Semogly.Wallet.Accounts.Application.Accounts;
 using Semogly.Wallet.Accounts.Application.Accounts.CreateAccount;
 using Semogly.Wallet.Accounts.Application.Accounts.GetAccount;
 using Semogly.Wallet.Accounts.Application.Accounts.GetBalance;
+using Semogly.Wallet.Accounts.Application.Accounts.SearchAccounts;
 using Semogly.Wallet.SharedKernel.Messaging;
+using Semogly.Wallet.SharedKernel.Pagination;
 
 namespace Semogly.Wallet.Accounts.Api.Endpoints;
 
@@ -28,6 +30,13 @@ internal static class AccountsEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapGet("/", SearchAccountsAsync)
+            .WithName("SearchAccounts")
+            .WithSummary("Busca contas por nome, e-mail ou CPF (backoffice)")
+            .WithDescription("No Gateway, exige o papel operator. Sem termo, lista as contas mais recentes.")
+            .Produces<PagedResponse<AccountResponse>>()
+            .ProducesValidationProblem();
 
         group.MapGet("/{id:guid}", GetAccountAsync)
             .WithName(GetAccountRoute)
@@ -56,6 +65,18 @@ internal static class AccountsEndpoints
         return result.IsSuccess
             ? TypedResults.CreatedAtRoute(result.Value, GetAccountRoute, new { id = result.Value.Id })
             : result.Error.ToProblem();
+    }
+
+    private static async Task<IResult> SearchAccountsAsync(
+        IQueryHandler<SearchAccountsQuery, PagedResponse<AccountResponse>> handler,
+        CancellationToken cancellationToken,
+        [StringLength(100)] string? search = null,
+        [Range(1, int.MaxValue)] int page = 1,
+        [Range(1, 100)] int pageSize = 20)
+    {
+        var result = await handler.HandleAsync(new SearchAccountsQuery(search, page, pageSize), cancellationToken);
+
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
     }
 
     private static async Task<IResult> GetAccountAsync(

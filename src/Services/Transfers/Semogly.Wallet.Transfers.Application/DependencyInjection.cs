@@ -5,6 +5,8 @@ using Semogly.Wallet.Transfers.Application.Transfers.CompleteTransfer;
 using Semogly.Wallet.Transfers.Application.Transfers.CreateTransfer;
 using Semogly.Wallet.Transfers.Application.Transfers.FailTransfer;
 using Semogly.Wallet.Transfers.Application.Transfers.GetTransfer;
+using Semogly.Wallet.Transfers.Application.Transfers.ListTransfers;
+using Semogly.Wallet.SharedKernel.Pagination;
 
 namespace Semogly.Wallet.Transfers.Application;
 
@@ -18,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<CompleteTransferCommand>, CompleteTransferCommandHandler>();
         services.AddScoped<ICommandHandler<FailTransferCommand>, FailTransferCommandHandler>();
         services.AddScoped<IQueryHandler<GetTransferQuery, TransferResponse>, GetTransferQueryHandler>();
+        services.AddScoped<IQueryHandler<ListTransfersQuery, PagedResponse<TransferResponse>>, ListTransfersQueryHandler>();
 
         return services;
     }
