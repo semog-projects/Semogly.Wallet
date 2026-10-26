@@ -16,14 +16,6 @@ public sealed record CreateTransferRequest(
     Guid DestinationAccountId,
     [Range(0.01, 1_000_000)] decimal Amount);
 
-public sealed record ListTransfersRequest(
-    TransferStatus? Status,
-    Guid? AccountId,
-    DateTimeOffset? From,
-    DateTimeOffset? To,
-    [Range(1, int.MaxValue)] int? Page,
-    [Range(1, 100)] int? PageSize);
-
 internal static class TransfersEndpoints
 {
     private const string GetTransferRoute = "GetTransfer";
@@ -79,14 +71,20 @@ internal static class TransfersEndpoints
             : result.Error.ToProblem();
     }
 
+    // Parâmetros explícitos em vez de [AsParameters]: no .NET 10 o gerador de OpenAPI lança
+    // InvalidCastException com atributos de validação em parâmetros posicionais de record
     private static async Task<IResult> ListTransfersAsync(
-        [AsParameters] ListTransfersRequest request,
         IQueryHandler<ListTransfersQuery, PagedResponse<TransferResponse>> handler,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TransferStatus? status = null,
+        Guid? accountId = null,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
+        [Range(1, int.MaxValue)] int page = 1,
+        [Range(1, 100)] int pageSize = 20)
     {
         var result = await handler.HandleAsync(
-            new ListTransfersQuery(new TransferFilter(
-                request.Status, request.AccountId, request.From, request.To, request.Page ?? 1, request.PageSize ?? 20)),
+            new ListTransfersQuery(new TransferFilter(status, accountId, from, to, page, pageSize)),
             cancellationToken);
 
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();

@@ -56,7 +56,7 @@ var jwtSigningKey = builder.AddParameter(
     secret: true,
     persist: true);
 
-builder.AddProject<Projects.Semogly_Wallet_Gateway>(ResourceNames.Gateway)
+var gateway = builder.AddProject<Projects.Semogly_Wallet_Gateway>(ResourceNames.Gateway)
     .WithReference(accountsApi).WaitFor(accountsApi)
     .WithReference(transfersApi).WaitFor(transfersApi)
     .WithReference(ledgerApi).WaitFor(ledgerApi)
@@ -67,5 +67,12 @@ builder.AddProject<Projects.Semogly_Wallet_Gateway>(ResourceNames.Gateway)
     .WithEnvironment("Jwt__SigningKey", jwtSigningKey)
     .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health");
+
+// Backoffice web (React + Vite): o dev server faz proxy de /api, /bff e /hubs para o Gateway,
+// então navegador e Gateway ficam na mesma origem e o cookie do BFF funciona sem CORS
+builder.AddViteApp(ResourceNames.Backoffice, "../../../apps/web")
+    .WithNpm(install: true)
+    .WithReference(gateway).WaitFor(gateway)
+    .WithExternalHttpEndpoints();
 
 builder.Build().Run();
