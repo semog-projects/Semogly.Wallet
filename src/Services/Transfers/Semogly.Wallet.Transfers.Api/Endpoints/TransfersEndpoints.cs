@@ -1,10 +1,13 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Semogly.Wallet.SharedKernel.Messaging;
+using Semogly.Wallet.SharedKernel.Pagination;
 using Semogly.Wallet.Transfers.Api.ErrorHandling;
 using Semogly.Wallet.Transfers.Application.Transfers;
 using Semogly.Wallet.Transfers.Application.Transfers.CreateTransfer;
 using Semogly.Wallet.Transfers.Application.Transfers.GetTransfer;
+using Semogly.Wallet.Transfers.Application.Transfers.ListTransfers;
+using Semogly.Wallet.Transfers.Domain.Transfers;
 
 namespace Semogly.Wallet.Transfers.Api.Endpoints;
 
@@ -12,6 +15,14 @@ public sealed record CreateTransferRequest(
     Guid SourceAccountId,
     Guid DestinationAccountId,
     [Range(0.01, 1_000_000)] decimal Amount);
+
+public sealed record ListTransfersRequest(
+    TransferStatus? Status,
+    Guid? AccountId,
+    DateTimeOffset? From,
+    DateTimeOffset? To,
+    [Range(1, int.MaxValue)] int? Page,
+    [Range(1, 100)] int? PageSize);
 
 internal static class TransfersEndpoints
 {
@@ -32,6 +43,13 @@ internal static class TransfersEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        group.MapGet("/", ListTransfersAsync)
+            .WithName("ListTransfers")
+            .WithSummary("Lista transferências com filtros (backoffice)")
+            .WithDescription("No Gateway, exige o papel operator. A conta filtra tanto pela origem quanto pelo destino.")
+            .Produces<PagedResponse<TransferResponse>>()
+            .ProducesValidationProblem();
 
         group.MapGet("/{id:guid}", GetTransferAsync)
             .WithName(GetTransferRoute)
@@ -59,6 +77,19 @@ internal static class TransfersEndpoints
         return result.IsSuccess
             ? TypedResults.AcceptedAtRoute(result.Value, GetTransferRoute, new { id = result.Value.Id })
             : result.Error.ToProblem();
+    }
+
+    private static async Task<IResult> ListTransfersAsync(
+        [AsParameters] ListTransfersRequest request,
+        IQueryHandler<ListTransfersQuery, PagedResponse<TransferResponse>> handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(
+            new ListTransfersQuery(new TransferFilter(
+                request.Status, request.AccountId, request.From, request.To, request.Page ?? 1, request.PageSize ?? 20)),
+            cancellationToken);
+
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
     }
 
     private static async Task<IResult> GetTransferAsync(

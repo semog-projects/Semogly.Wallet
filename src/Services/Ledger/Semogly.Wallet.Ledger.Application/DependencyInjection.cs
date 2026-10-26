@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Semogly.Wallet.Ledger.Application.Accounts.Deposit;
+using Semogly.Wallet.Ledger.Application.Accounts.GetBook;
 using Semogly.Wallet.Ledger.Application.Accounts.GetStatement;
 using Semogly.Wallet.Ledger.Application.Accounts.OpenAccount;
 using Semogly.Wallet.Ledger.Application.Accounts.Transfers;
@@ -18,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<CreditForTransferCommand>, CreditForTransferCommandHandler>();
         services.AddScoped<ICommandHandler<DepositCommand, DepositResponse>, DepositCommandHandler>();
         services.AddScoped<IQueryHandler<GetStatementQuery, StatementResponse>, GetStatementQueryHandler>();
+        services.AddScoped<IQueryHandler<GetBookQuery, LedgerBookResponse>, GetBookQueryHandler>();
 
         return services;
     }

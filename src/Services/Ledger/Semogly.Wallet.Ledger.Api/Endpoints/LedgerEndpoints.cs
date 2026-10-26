@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Semogly.Wallet.Ledger.Api.ErrorHandling;
 using Semogly.Wallet.Ledger.Application.Accounts.Deposit;
+using Semogly.Wallet.Ledger.Application.Accounts.GetBook;
 using Semogly.Wallet.Ledger.Application.Accounts.GetStatement;
 using Semogly.Wallet.SharedKernel.Messaging;
 
@@ -29,6 +30,13 @@ internal static class LedgerEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        app.MapGet("/ledger/book", GetBookAsync)
+            .WithTags("Ledger")
+            .WithName("GetBook")
+            .WithSummary("Visão do livro-razão: saldos de CashIn, Clearing e clientes (backoffice)")
+            .WithDescription("No Gateway, exige o papel operator. Total diferente de zero indica inconsistência contábil.")
+            .Produces<LedgerBookResponse>();
+
         return app;
     }
 
@@ -39,6 +47,15 @@ internal static class LedgerEndpoints
         CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(new DepositCommand(accountId, request.Amount), cancellationToken);
+
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
+    }
+
+    private static async Task<IResult> GetBookAsync(
+        IQueryHandler<GetBookQuery, LedgerBookResponse> handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(new GetBookQuery(), cancellationToken);
 
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
     }
