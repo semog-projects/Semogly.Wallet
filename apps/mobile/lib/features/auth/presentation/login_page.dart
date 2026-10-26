@@ -24,7 +24,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _submit() async {
     final username = _username.text.trim();
-    if (username.isEmpty || _submitting) {
+    if (_submitting) {
+      return;
+    }
+
+    if (!username.contains('@')) {
+      setState(() => _error = const FormatException());
       return;
     }
 
@@ -64,7 +69,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 Text('Semogly Wallet', textAlign: TextAlign.center, style: theme.textTheme.headlineMedium),
                 const SizedBox(height: 8),
                 Text(
-                  'Ambiente de desenvolvimento: o Gateway emite o token para qualquer usuário.',
+                  'Ambiente de desenvolvimento: entre com o e-mail cadastrado na conta.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall,
                 ),
@@ -72,7 +77,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 TextField(
                   key: const Key('username'),
                   controller: _username,
-                  decoration: const InputDecoration(labelText: 'Usuário', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(labelText: 'E-mail', border: OutlineInputBorder()),
+                  keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.done,
                   autocorrect: false,
                   onSubmitted: (_) => _submit(),
@@ -99,6 +105,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   static String _messageFor(Object? error) => switch (error) {
+    FormatException() => 'Informe um e-mail válido.',
     DioException(type: DioExceptionType.connectionError || DioExceptionType.connectionTimeout) =>
       'Sem conexão com o servidor. Verifique se o AppHost está rodando.',
     _ => 'Não foi possível entrar. Tente novamente.',

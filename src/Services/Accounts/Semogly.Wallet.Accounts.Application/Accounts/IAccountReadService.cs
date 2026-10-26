@@ -12,4 +12,7 @@ public interface IAccountReadService
 
     /// <summary>Busca por trecho do nome ou do e-mail, ou pelo início do CPF (sem cache).</summary>
     Task<PagedResponse<AccountResponse>> SearchAsync(string? term, int page, int pageSize, CancellationToken cancellationToken);
+
+    /// <summary>Contas cujo e-mail do titular é o informado (já normalizado em minúsculas).</summary>
+    Task<IReadOnlyList<AccountResponse>> GetByOwnerEmailAsync(string email, CancellationToken cancellationToken);
 }

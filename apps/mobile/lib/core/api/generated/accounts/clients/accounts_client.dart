@@ -32,6 +32,12 @@ abstract class AccountsClient {
     @Query('search') String? search,
   });
 
+  /// Contas do titular autenticado (e-mail do token).
+  ///
+  /// Exige JWT: o próprio serviço valida o token repassado pelo Gateway.
+  @GET('/accounts/me')
+  Future<List<AccountResponse>> getMyAccounts();
+
   /// Consulta os dados de uma conta
   @GET('/accounts/{id}')
   Future<AccountResponse> getAccount({

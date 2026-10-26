@@ -10,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.AddInfrastructure();
+builder.AddJwtValidation();
 builder.Services.AddApplication();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -29,6 +30,8 @@ builder.Services.AddOpenApi(options => options.AddGatewayServer());
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {

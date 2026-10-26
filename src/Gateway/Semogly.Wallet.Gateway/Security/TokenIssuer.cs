@@ -21,6 +21,12 @@ internal sealed class TokenIssuer(JwtOptions jwt, TimeProvider clock)
         var claims = new List<Claim> { new(JwtRegisteredClaimNames.Sub, username) };
         claims.AddRange((roles ?? []).Select(role => new Claim(RoleClaim, role)));
 
+        // Login por e-mail (app do cliente): a claim identifica o titular das contas nos serviços
+        if (username.Contains('@', StringComparison.Ordinal))
+        {
+            claims.Add(new Claim(JwtRegisteredClaimNames.Email, username.Trim().ToLowerInvariant()));
+        }
+
         var now = clock.GetUtcNow();
         var expiresAt = now.Add(jwt.TokenLifetime);
         var identity = new ClaimsIdentity(claims, "jwt", JwtRegisteredClaimNames.Sub, RoleClaim);

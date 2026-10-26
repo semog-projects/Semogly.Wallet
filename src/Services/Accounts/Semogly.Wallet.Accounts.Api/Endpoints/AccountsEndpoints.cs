@@ -1,9 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Semogly.Wallet.Accounts.Api.ErrorHandling;
 using Semogly.Wallet.Accounts.Application.Accounts;
 using Semogly.Wallet.Accounts.Application.Accounts.CreateAccount;
 using Semogly.Wallet.Accounts.Application.Accounts.GetAccount;
 using Semogly.Wallet.Accounts.Application.Accounts.GetBalance;
+using Semogly.Wallet.Accounts.Application.Accounts.GetMyAccounts;
 using Semogly.Wallet.Accounts.Application.Accounts.SearchAccounts;
 using Semogly.Wallet.SharedKernel.Messaging;
 using Semogly.Wallet.SharedKernel.Pagination;
@@ -37,6 +39,15 @@ internal static class AccountsEndpoints
             .WithDescription("No Gateway, exige o papel operator. Sem termo, lista as contas mais recentes.")
             .Produces<PagedResponse<AccountResponse>>()
             .ProducesValidationProblem();
+
+        group.MapGet("/me", GetMyAccountsAsync)
+            .WithName("GetMyAccounts")
+            .WithSummary("Contas do titular autenticado (e-mail do token)")
+            .WithDescription("Exige JWT: o próprio serviço valida o token repassado pelo Gateway.")
+            .RequireAuthorization()
+            .Produces<IReadOnlyList<AccountResponse>>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapGet("/{id:guid}", GetAccountAsync)
             .WithName(GetAccountRoute)
@@ -75,6 +86,18 @@ internal static class AccountsEndpoints
         [Range(1, 100)] int pageSize = 20)
     {
         var result = await handler.HandleAsync(new SearchAccountsQuery(search, page, pageSize), cancellationToken);
+
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
+    }
+
+    private static async Task<IResult> GetMyAccountsAsync(
+        ClaimsPrincipal user,
+        IQueryHandler<GetMyAccountsQuery, IReadOnlyList<AccountResponse>> handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(
+            new GetMyAccountsQuery(user.FindFirstValue(JwtValidationExtensions.EmailClaim)),
+            cancellationToken);
 
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
     }

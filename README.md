@@ -240,6 +240,7 @@ informe-o na autenticação Bearer.
 | `POST` | `/bff/login` · `/bff/logout` | Sessão do web em cookie `HttpOnly` (BFF): o JWT fica no Gateway. Exigem o header `X-CSRF: 1` |
 | `GET` | `/bff/user` | Usuário e papéis da sessão atual |
 | `POST` | `/api/accounts` | Abre uma conta |
+| `GET` | `/api/accounts/me` | Contas do titular (e-mail do token; o Accounts valida o JWT por conta própria) |
 | `GET` | `/api/accounts/{id}` · `/api/accounts/{id}/balance` | Dados e saldo da conta |
 | `POST` | `/api/ledger/accounts/{id}/deposits` | Depósito (papel `operator`) |
 | `GET` | `/api/ledger/accounts/{id}/statement` | Extrato paginado |
