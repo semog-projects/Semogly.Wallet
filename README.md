@@ -240,6 +240,7 @@ informe-o na autenticação Bearer.
 | `GET` | `/api/transfers/{id}` | Status da transferência |
 | `GET` | `/api/fraud/accounts/{id}/daily-usage` | Uso do limite diário |
 | `GET` | `/api/notifications/accounts/{id}` | Notificações enviadas |
+| `WS` | `/hubs/transfers` | SignalR: `SubscribeToAccount(id)` e o evento `TransferUpdated` (status em tempo real; `operator` recebe todas) |
 
 ### Regras antifraude (configuráveis em `FraudPolicy`)
 

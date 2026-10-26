@@ -62,6 +62,8 @@ builder.AddProject<Projects.Semogly_Wallet_Gateway>(ResourceNames.Gateway)
     .WithReference(ledgerApi).WaitFor(ledgerApi)
     .WithReference(fraudApi).WaitFor(fraudApi)
     .WithReference(notificationsApi).WaitFor(notificationsApi)
+    .WithReference(rabbitMq).WaitFor(rabbitMq) // eventos de transferência para o SignalR
+    .WithReference(redis).WaitFor(redis)       // backplane do SignalR
     .WithEnvironment("Jwt__SigningKey", jwtSigningKey)
     .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health");

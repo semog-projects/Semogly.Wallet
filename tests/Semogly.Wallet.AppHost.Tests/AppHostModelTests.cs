@@ -32,7 +32,7 @@ public class AppHostModelTests
     [InlineData(ResourceNames.Gateway, new[]
     {
         ResourceNames.AccountsApi, ResourceNames.TransfersApi, ResourceNames.LedgerApi,
-        ResourceNames.FraudApi, ResourceNames.NotificationsApi,
+        ResourceNames.FraudApi, ResourceNames.NotificationsApi, ResourceNames.RabbitMq, ResourceNames.Redis,
     })]
     public async Task Service_ShouldReferenceItsInfrastructure(string serviceName, string[] expectedReferences)
     {

@@ -1,5 +1,6 @@
 using Scalar.AspNetCore;
 using Semogly.Wallet.Gateway.RateLimiting;
+using Semogly.Wallet.Gateway.Realtime;
 using Semogly.Wallet.Gateway.Security;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,6 +16,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddGatewaySecurity(builder.Configuration);
 builder.Services.AddGatewayRateLimiting();
 builder.Services.AddProblemDetails();
+builder.AddRealtime();
 
 var app = builder.Build();
 
@@ -42,6 +44,7 @@ if (app.Environment.IsDevelopment())
         .AddDocument("notifications", "Notifications", "/openapi/notifications.json"));
 }
 
+app.MapHub<TransfersHub>(TransfersHub.Route);
 app.MapReverseProxy();
 
 await app.RunAsync();

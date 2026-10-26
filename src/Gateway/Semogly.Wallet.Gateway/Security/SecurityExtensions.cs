@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using Semogly.Wallet.Gateway.Realtime;
 
 namespace Semogly.Wallet.Gateway.Security;
 
@@ -25,6 +26,22 @@ internal static class SecurityExtensions
                     NameClaimType = JwtRegisteredClaimNames.Sub,
                     RoleClaimType = "role",
                     ClockSkew = TimeSpan.FromSeconds(30),
+                };
+
+                // WebSocket/SSE não permitem o header Authorization no navegador: o cliente
+                // SignalR envia o token na query string, aceita apenas na rota do hub
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        if (context.HttpContext.Request.Path.StartsWithSegments(TransfersHub.Route) &&
+                            context.Request.Query.TryGetValue("access_token", out var token))
+                        {
+                            context.Token = token;
+                        }
+
+                        return Task.CompletedTask;
+                    },
                 };
             });
 

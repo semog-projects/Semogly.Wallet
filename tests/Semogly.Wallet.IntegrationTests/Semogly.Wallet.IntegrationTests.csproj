@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.RabbitMq" />
     <PackageReference Include="Testcontainers.Redis" />
@@ -22,6 +23,7 @@
     <ProjectReference Include="..\..\src\Services\Ledger\Semogly.Wallet.Ledger.Api\Semogly.Wallet.Ledger.Api.csproj" />
     <ProjectReference Include="..\..\src\Services\Fraud\Semogly.Wallet.Fraud.Api\Semogly.Wallet.Fraud.Api.csproj" />
     <ProjectReference Include="..\..\src\Services\Notifications\Semogly.Wallet.Notifications.Api\Semogly.Wallet.Notifications.Api.csproj" />
+    <ProjectReference Include="..\..\src\Gateway\Semogly.Wallet.Gateway\Semogly.Wallet.Gateway.csproj" />
   </ItemGroup>
 
   <ItemGroup>
