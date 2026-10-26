@@ -1,4 +1,5 @@
 using Scalar.AspNetCore;
+using Semogly.Wallet.Gateway.Bff;
 using Semogly.Wallet.Gateway.RateLimiting;
 using Semogly.Wallet.Gateway.Realtime;
 using Semogly.Wallet.Gateway.Security;
@@ -10,12 +11,14 @@ builder.AddServiceDefaults();
 // Rotas e clusters em appsettings.json; endereços resolvidos pelo service discovery do Aspire
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-    .AddServiceDiscoveryDestinationResolver();
+    .AddServiceDiscoveryDestinationResolver()
+    .AddBffTokenForwarding();
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddGatewaySecurity(builder.Configuration);
 builder.Services.AddGatewayRateLimiting();
 builder.Services.AddProblemDetails();
+builder.AddBffDataProtection();
 builder.AddRealtime();
 
 var app = builder.Build();
@@ -23,12 +26,14 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
-// Autenticação antes do rate limiter: a partição do limite é o usuário do token
+// Autenticação antes do rate limiter: a partição do limite é o usuário (do token ou da sessão)
 app.UseAuthentication();
+app.UseBffCsrfProtection();
 app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapDefaultEndpoints();
+app.MapBffEndpoints(allowDevelopmentLogin: app.Environment.IsDevelopment());
 
 if (app.Environment.IsDevelopment())
 {
