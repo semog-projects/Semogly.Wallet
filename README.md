@@ -161,6 +161,7 @@ o lançamento, as mensagens publicadas e a deduplicação são confirmados junto
 | Persistência | PostgreSQL 18 + EF Core 10 · Marten 9 (event store e projeções) |
 | Cache e contadores | Redis 8 · HybridCache · scripts Lua |
 | Borda | YARP · JWT Bearer · BFF com cookie · Rate Limiting · SignalR · Scalar (OpenAPI agregado) |
+| App do cliente | Flutter 3 · Riverpod · go_router · dio · clientes Dart gerados do OpenAPI (swagger_parser) · token no Keychain/Keystore |
 | Backoffice web | React 19 · TypeScript · Vite · TanStack Query · React Router · Tailwind + shadcn/ui · cliente gerado do OpenAPI (openapi-fetch) · Vitest |
 | Testes | xUnit v3 · MassTransit Test Harness · Testcontainers · WebApplicationFactory |
 | Qualidade | Central Package Management · analisadores com `TreatWarningsAsErrors` · testes de arquitetura · GitHub Actions |
@@ -187,6 +188,7 @@ aplicados automaticamente em Development.
 | **Backoffice web** (React) | Link do recurso `backoffice` no dashboard. Login de desenvolvimento com "Entrar como operador" |
 | **Gateway + Scalar com toda a API** | `https://localhost:7100/scalar` |
 | RabbitMQ e pgAdmin | Links no dashboard do Aspire |
+| **App do cliente** (Flutter) | `cd apps/mobile && flutter run` com um emulador Android aberto (ver [apps/mobile](apps/mobile/README.md)) |
 
 > Os containers usam `ContainerLifetime.Persistent`: continuam rodando entre execuções e os dados são preservados
 > em volumes.
