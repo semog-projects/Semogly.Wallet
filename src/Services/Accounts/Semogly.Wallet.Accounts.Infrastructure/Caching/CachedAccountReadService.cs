@@ -51,6 +51,13 @@ internal sealed class CachedAccountReadService(HybridCache cache, AccountsDbCont
         return new PagedResponse<AccountResponse>(items, page, pageSize, total);
     }
 
+    public async Task<IReadOnlyList<AccountResponse>> GetByOwnerEmailAsync(string email, CancellationToken cancellationToken) =>
+        await ToResponse(db.Accounts
+                .AsNoTracking()
+                .Where(a => a.Email == email)
+                .OrderBy(a => a.CreatedAt))
+            .ToListAsync(cancellationToken);
+
     private static IQueryable<AccountResponse> ToResponse(IQueryable<Account> query) =>
         query.Select(a => new AccountResponse(a.Id, a.OwnerName, a.Email, a.Currency, a.Balance, a.Status, a.CreatedAt));
 

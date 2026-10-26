@@ -46,6 +46,9 @@ public sealed class WalletFixture : IAsyncLifetime
         {
             ["ConnectionStrings:rabbitmq"] = _rabbitMq.GetConnectionString(),
             ["ConnectionStrings:redis"] = _redis.GetConnectionString(),
+
+            // Mesma chave no Gateway (emite) e nos serviços que validam o token
+            ["Jwt:SigningKey"] = GatewaySigningKey,
         };
 
         foreach (var database in Databases)
@@ -61,7 +64,7 @@ public sealed class WalletFixture : IAsyncLifetime
         Notifications = Host<NotificationsApiMarker>(settings);
 
         // Gateway: aqui exercitado pelo hub SignalR (o proxy depende do service discovery do Aspire)
-        Gateway = Host<GatewayMarker>(new(settings) { ["Jwt:SigningKey"] = GatewaySigningKey });
+        Gateway = Host<GatewayMarker>(settings);
 
         // Força a inicialização dos hosts (migrations, schema do Marten e conexão com o broker)
         _ = Accounts.Server;

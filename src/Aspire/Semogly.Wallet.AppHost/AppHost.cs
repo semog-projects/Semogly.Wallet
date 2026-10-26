@@ -22,8 +22,17 @@ var rabbitMq = builder.AddRabbitMQ(ResourceNames.RabbitMq)
 var redis = builder.AddRedis(ResourceNames.Redis)
     .WithLifetime(ContainerLifetime.Persistent);
 
+// Chave do JWT emitido pelo Gateway, gerada e persistida pelo Aspire (user secrets).
+// Também vai para os serviços que validam o token por conta própria (defesa em profundidade).
+var jwtSigningKey = builder.AddParameter(
+    ResourceNames.JwtSigningKey,
+    new GenerateParameterDefault { MinLength = 64, Special = false },
+    secret: true,
+    persist: true);
+
 // Microsserviços
 var accountsApi = builder.AddProject<Projects.Semogly_Wallet_Accounts_Api>(ResourceNames.AccountsApi)
+    .WithEnvironment("Jwt__SigningKey", jwtSigningKey)
     .WithReference(accountsDb).WaitFor(accountsDb)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithReference(redis).WaitFor(redis)
@@ -49,13 +58,7 @@ var notificationsApi = builder.AddProject<Projects.Semogly_Wallet_Notifications_
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithHttpHealthCheck("/health");
 
-// Gateway: único ponto de entrada externo. A chave do JWT é gerada e persistida pelo Aspire (user secrets)
-var jwtSigningKey = builder.AddParameter(
-    ResourceNames.JwtSigningKey,
-    new GenerateParameterDefault { MinLength = 64, Special = false },
-    secret: true,
-    persist: true);
-
+// Gateway: único ponto de entrada externo
 var gateway = builder.AddProject<Projects.Semogly_Wallet_Gateway>(ResourceNames.Gateway)
     .WithReference(accountsApi).WaitFor(accountsApi)
     .WithReference(transfersApi).WaitFor(transfersApi)

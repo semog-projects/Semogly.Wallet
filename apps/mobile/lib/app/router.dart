@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/accounts/presentation/account_page.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/session_controller.dart';
 import '../features/home/presentation/home_page.dart';
@@ -44,6 +45,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: Routes.login, builder: (_, _) => const LoginPage()),
       GoRoute(path: Routes.home, builder: (_, _) => const HomePage()),
+      GoRoute(
+        path: '/accounts/:id',
+        builder: (_, state) => AccountPage(accountId: state.pathParameters['id']!),
+      ),
     ],
   );
 });
