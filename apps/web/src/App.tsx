@@ -5,9 +5,10 @@ import { RequireOperator } from '@/auth/RequireOperator'
 import { AppLayout } from '@/layout/AppLayout'
 import { AccountDetailPage } from '@/pages/accounts/AccountDetailPage'
 import { AccountsPage } from '@/pages/accounts/AccountsPage'
-import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { OverviewPage } from '@/pages/OverviewPage'
+import { TransfersPage } from '@/pages/transfers/TransfersPage'
+import { RealtimeProvider } from '@/realtime/RealtimeProvider'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,14 +27,16 @@ export function AppRoutes() {
       <Route
         element={
           <RequireOperator>
-            <AppLayout />
+            <RealtimeProvider>
+              <AppLayout />
+            </RealtimeProvider>
           </RequireOperator>
         }
       >
         <Route index element={<OverviewPage />} />
         <Route path="accounts" element={<AccountsPage />} />
         <Route path="accounts/:id" element={<AccountDetailPage />} />
-        <Route path="transfers" element={<ComingSoonPage title="Transferências" issue={26} />} />
+        <Route path="transfers" element={<TransfersPage />} />
       </Route>
     </Routes>
   )
