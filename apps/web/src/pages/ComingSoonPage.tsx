@@ -1,4 +1,4 @@
-/** Telas planejadas nas próximas issues (#25 contas, #26 transferências). */
+/** Telas planejadas em issues futuras. */
 export function ComingSoonPage({ title, issue }: { title: string; issue: number }) {
   return (
     <section className="space-y-2">
