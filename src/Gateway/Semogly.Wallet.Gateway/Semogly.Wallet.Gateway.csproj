@@ -4,6 +4,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" />
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery.Yarp" />
     <PackageReference Include="Scalar.AspNetCore" />
     <PackageReference Include="Yarp.ReverseProxy" />
@@ -11,6 +12,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Aspire\Semogly.Wallet.ServiceDefaults\Semogly.Wallet.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Semogly.Wallet.Contracts\Semogly.Wallet.Contracts.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Semogly.Wallet.Messaging\Semogly.Wallet.Messaging.csproj" />
   </ItemGroup>
 
 </Project>

@@ -6,6 +6,7 @@ using Testcontainers.RabbitMq;
 using Testcontainers.Redis;
 using Semogly.Wallet.Accounts.Api;
 using Semogly.Wallet.Fraud.Api;
+using Semogly.Wallet.Gateway;
 using Semogly.Wallet.Ledger.Api;
 using Semogly.Wallet.Notifications.Api;
 using Semogly.Wallet.Transfers.Api;
@@ -24,6 +25,8 @@ public sealed class WalletFixture : IAsyncLifetime
     private readonly RabbitMqContainer _rabbitMq = new RabbitMqBuilder("rabbitmq:4.3-management").Build();
     private readonly RedisContainer _redis = new RedisBuilder("redis:8.6").Build();
 
+    private const string GatewaySigningKey = "chave-de-teste-do-gateway-com-mais-de-32-caracteres";
+
     private readonly List<IAsyncDisposable> _factories = [];
 
     public WebApplicationFactory<AccountsApiMarker> Accounts { get; private set; } = null!;
@@ -31,6 +34,7 @@ public sealed class WalletFixture : IAsyncLifetime
     public WebApplicationFactory<LedgerApiMarker> Ledger { get; private set; } = null!;
     public WebApplicationFactory<FraudApiMarker> Fraud { get; private set; } = null!;
     public WebApplicationFactory<NotificationsApiMarker> Notifications { get; private set; } = null!;
+    public WebApplicationFactory<GatewayMarker> Gateway { get; private set; } = null!;
 
     public async ValueTask InitializeAsync()
     {
@@ -56,12 +60,16 @@ public sealed class WalletFixture : IAsyncLifetime
         Fraud = Host<FraudApiMarker>(settings);
         Notifications = Host<NotificationsApiMarker>(settings);
 
+        // Gateway: aqui exercitado pelo hub SignalR (o proxy depende do service discovery do Aspire)
+        Gateway = Host<GatewayMarker>(new(settings) { ["Jwt:SigningKey"] = GatewaySigningKey });
+
         // Força a inicialização dos hosts (migrations, schema do Marten e conexão com o broker)
         _ = Accounts.Server;
         _ = Transfers.Server;
         _ = Ledger.Server;
         _ = Fraud.Server;
         _ = Notifications.Server;
+        _ = Gateway.Server;
     }
 
     public async ValueTask DisposeAsync()
