@@ -1,9 +1,10 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/oidc_client.dart';
 import 'session_controller.dart';
 
+/// Login pelo Keycloak no navegador do sistema: o app nunca vê a senha.
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -12,40 +13,27 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
-  final _username = TextEditingController();
-  final _password = TextEditingController();
   bool _submitting = false;
-  Object? _error;
+  bool _failed = false;
 
-  @override
-  void dispose() {
-    _username.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final username = _username.text.trim();
+  Future<void> _signIn() async {
     if (_submitting) {
-      return;
-    }
-
-    if (!username.contains('@')) {
-      setState(() => _error = const FormatException());
       return;
     }
 
     setState(() {
       _submitting = true;
-      _error = null;
+      _failed = false;
     });
 
     try {
       // Sucesso: o router redireciona para a home ao perceber a nova sessão
-      await ref.read(sessionControllerProvider.notifier).signIn(username, _password.text);
-    } catch (error) {
+      await ref.read(sessionControllerProvider.notifier).signIn();
+    } on SignInCancelledException {
+      // Fechou a tela do Keycloak: volta ao estado inicial, sem mensagem de erro
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = error);
+        setState(() => _failed = true);
       }
     } finally {
       if (mounted) {
@@ -76,35 +64,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   style: theme.textTheme.bodySmall,
                 ),
                 const SizedBox(height: 32),
-                TextField(
-                  key: const Key('username'),
-                  controller: _username,
-                  decoration: const InputDecoration(labelText: 'E-mail', border: OutlineInputBorder()),
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  autocorrect: false,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  key: const Key('password'),
-                  controller: _password,
-                  decoration: const InputDecoration(labelText: 'Senha', border: OutlineInputBorder()),
-                  obscureText: true,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _submit(),
-                ),
-                const SizedBox(height: 16),
-                if (_error != null)
+                if (_failed)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Text(
-                      _messageFor(_error),
+                      'Não foi possível entrar. Verifique a conexão e tente novamente.',
+                      textAlign: TextAlign.center,
                       style: TextStyle(color: theme.colorScheme.error),
                     ),
                   ),
-                FilledButton(
-                  onPressed: _submitting ? null : _submit,
-                  child: Text(_submitting ? 'Entrando…' : 'Entrar'),
+                FilledButton.icon(
+                  onPressed: _submitting ? null : _signIn,
+                  icon: const Icon(Icons.login),
+                  label: Text(_submitting ? 'Entrando…' : 'Entrar'),
                 ),
               ],
             ),
@@ -113,12 +85,4 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
     );
   }
-
-  static String _messageFor(Object? error) => switch (error) {
-    FormatException() => 'Informe um e-mail válido.',
-    DioException(response: Response(statusCode: 401)) => 'E-mail ou senha inválidos.',
-    DioException(type: DioExceptionType.connectionError || DioExceptionType.connectionTimeout) =>
-      'Sem conexão com o servidor. Verifique se o AppHost está rodando.',
-    _ => 'Não foi possível entrar. Tente novamente.',
-  };
 }

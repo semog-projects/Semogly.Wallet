@@ -27,6 +27,9 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Retorno do login no Keycloak (flutter_appauth): com.semogly.wallet:/oauthredirect
+        manifestPlaceholders["appAuthRedirectScheme"] = "com.semogly.wallet"
     }
 
     buildTypes {

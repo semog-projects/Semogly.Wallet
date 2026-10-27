@@ -12,10 +12,10 @@ final class SessionController extends AsyncNotifier<Session?> {
   @override
   Future<Session?> build() => _repository.restore();
 
-  /// Lança em caso de falha; o progresso e o erro ficam a cargo da tela de login,
+  /// Lança em caso de falha ou desistência; o progresso e o erro ficam a cargo da tela de login,
   /// para a sessão não "piscar" para o estado de carregamento durante a tentativa.
-  Future<void> signIn(String username, String password) async {
-    final session = await _repository.signIn(username, password);
+  Future<void> signIn() async {
+    final session = await _repository.signIn();
     state = AsyncData(session);
   }
 

@@ -1,23 +1,29 @@
 import 'package:dio/dio.dart';
 
-import '../auth/token_storage.dart';
+import '../auth/session_tokens.dart';
 
-/// Anexa o Bearer token em toda chamada à API e avisa quando o Gateway recusa a sessão (401).
+/// Anexa o Bearer token (renovado quando perto de expirar) em toda chamada à API e avisa quando o
+/// Gateway recusa a sessão (401).
 final class AuthInterceptor extends Interceptor {
-  AuthInterceptor(this._storage, {required this.onUnauthorized});
+  AuthInterceptor(this._tokens, {required this.onUnauthorized});
 
-  final TokenStorage _storage;
+  final SessionTokens _tokens;
 
-  /// Chamado em 401: token expirado ou inválido, a sessão precisa ser encerrada.
+  /// Chamado em 401: sessão expirada ou encerrada, precisa voltar ao login.
   final Future<void> Function() onUnauthorized;
 
   @override
   Future<void> onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
-    final token = await _storage.read();
-    if (token != null) {
-      options.headers['Authorization'] = 'Bearer $token';
+    try {
+      final token = await _tokens.accessToken();
+      if (token != null) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
+      handler.next(options);
+    } on DioException catch (error) {
+      // Falha de rede ao renovar o token: a requisição falha como qualquer erro de conexão
+      handler.reject(error.copyWith(requestOptions: options));
     }
-    handler.next(options);
   }
 
   @override

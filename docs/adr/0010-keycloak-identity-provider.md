@@ -14,9 +14,11 @@ oferece os fluxos que o web e o app precisam (OIDC com redirecionamento e PKCE).
   - O realm `semogly-wallet` fica versionado em `src/Aspire/Semogly.Wallet.AppHost/Realms` e é importado na subida.
   - Clientes: `wallet-gateway` (confidencial, usado pelo BFF e pelo Gateway) e `wallet-mobile` (público, PKCE).
   - Papéis de realm `customer` e `operator`, emitidos na claim plana `role`; audiência `semogly-wallet-api`.
-- **Issuer estável:** endpoint HTTPS fixo em `https://localhost:8443` (certificado de desenvolvimento do Aspire,
-  publicado direto pelo Docker) com `KC_HOSTNAME`. Tokens obtidos pelo navegador, pelo app ou pelo Gateway
-  (via service discovery) têm o mesmo `iss`, e `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` mantém o back-channel interno.
+- **Issuer estável:** endpoint fixo em `http://localhost:8080` (publicado direto pelo Docker) com `KC_HOSTNAME`.
+  Tokens obtidos pelo navegador, pelo app ou pelo Gateway (via service discovery) têm o mesmo `iss`, e
+  `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` mantém o back-channel interno. HTTP em desenvolvimento porque o emulador
+  Android não confia no certificado de desenvolvimento do .NET (o mesmo motivo do Gateway em HTTP para o app);
+  o emulador alcança a porta com `adb reverse tcp:8080 tcp:8080`. No início (#39) era HTTPS na 8443.
 - **Validação:** `AddWalletJwtBearer` no ServiceDefaults usa `AddKeycloakJwtBearer` (metadados e JWKS pelo
   service discovery), valida a audiência e mapeia `preferred_username` e `role`. O Gateway e o Accounts usam a
   mesma configuração; não há mais chave compartilhada.
@@ -28,14 +30,18 @@ oferece os fluxos que o web e o app precisam (OIDC com redirecionamento e PKCE).
   - `POST /bff/logout` encerra a sessão no Keycloak pelo canal de servidor (endpoint de logout com o refresh
     token), sem depender de redirecionar o navegador.
   - O front informa sua origem pública por `X-Forwarded-Host/Proto` (aceitos só de proxies locais).
-- **Password grant só em Development** (`POST /auth/token`), para o Scalar, o curl e o app até a issue #41.
+- **Login do app:** Authorization Code + PKCE no navegador do sistema (`flutter_appauth`) com o cliente público
+  `wallet-mobile`; tokens no armazenamento seguro, renovação antes de expirar e logout pelo endpoint de logout do
+  Keycloak (sem abrir o navegador).
+- **Password grant só em Development** (`POST /auth/token`), para o Scalar e o curl.
 - **Sessão do BFF no servidor:** os tokens RS256 do Keycloak deixariam o cookie grande demais (fatiado em vários
   `Set-Cookie`). O ticket fica no Redis, protegido pelo Data Protection, e o cookie carrega só a chave da sessão.
 - **Testes de integração:** `Testcontainers.Keycloak` importa o mesmo arquivo de realm; usuários são criados pela
   API de administração e os testes usam tokens reais. O login do BFF é testado de ponta a ponta, preenchendo a
   tela de login do Keycloak.
-- **HSTS desligado no realm de desenvolvimento** (`max-age=0`): o HSTS vale para o host, não para a porta, e o
-  enviado por `https://localhost:8443` forçaria https no front em `http://localhost:5173`.
+- **HSTS desligado no realm de desenvolvimento** (`max-age=0`): o HSTS vale para o host, não para a porta; se o
+  Keycloak voltar a ser servido por https em `localhost`, ele forçaria https no front em `http://localhost:5173`.
+  O `max-age=0` também limpa um HSTS que o navegador já tenha guardado.
 
 ## Consequências
 
@@ -46,7 +52,7 @@ oferece os fluxos que o web e o app precisam (OIDC com redirecionamento e PKCE).
 - **Negativas:**
   - Mais um container na subida local e nos testes (alguns segundos a mais).
   - Pacotes do Aspire para Keycloak ainda em preview.
-  - O password grant (ROPC) é desaconselhado pelo OAuth 2.1; fica restrito a Development e sai do app com a #41.
+  - O password grant (ROPC) é desaconselhado pelo OAuth 2.1; fica restrito a Development (Scalar e curl).
   - O realm versionado é de desenvolvimento (segredo do cliente, HTTP permitido, HSTS desligado); produção
     precisa de outra configuração.
   - O Keycloak 26 exige e-mail nos usuários para concluir o login.

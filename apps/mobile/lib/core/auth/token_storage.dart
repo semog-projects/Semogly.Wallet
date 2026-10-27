@@ -1,10 +1,18 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Guarda o JWT no armazenamento seguro do aparelho (Keychain no iOS, Keystore no Android).
-abstract interface class TokenStorage {
-  Future<String?> read();
+/// Tokens emitidos pelo Keycloak para o app.
+final class AuthTokens {
+  const AuthTokens({required this.accessToken, required this.refreshToken});
 
-  Future<void> write(String token);
+  final String accessToken;
+  final String refreshToken;
+}
+
+/// Guarda os tokens no armazenamento seguro do aparelho (Keychain no iOS, Keystore no Android).
+abstract interface class TokenStorage {
+  Future<AuthTokens?> read();
+
+  Future<void> write(AuthTokens tokens);
 
   Future<void> clear();
 }
@@ -12,32 +20,44 @@ abstract interface class TokenStorage {
 final class SecureTokenStorage implements TokenStorage {
   SecureTokenStorage([FlutterSecureStorage? storage]) : _storage = storage ?? const FlutterSecureStorage();
 
-  static const _key = 'access_token';
+  static const _accessKey = 'access_token';
+  static const _refreshKey = 'refresh_token';
 
   final FlutterSecureStorage _storage;
 
   @override
-  Future<String?> read() => _storage.read(key: _key);
+  Future<AuthTokens?> read() async {
+    final access = await _storage.read(key: _accessKey);
+    final refresh = await _storage.read(key: _refreshKey);
+
+    return access == null || refresh == null ? null : AuthTokens(accessToken: access, refreshToken: refresh);
+  }
 
   @override
-  Future<void> write(String token) => _storage.write(key: _key, value: token);
+  Future<void> write(AuthTokens tokens) async {
+    await _storage.write(key: _accessKey, value: tokens.accessToken);
+    await _storage.write(key: _refreshKey, value: tokens.refreshToken);
+  }
 
   @override
-  Future<void> clear() => _storage.delete(key: _key);
+  Future<void> clear() async {
+    await _storage.delete(key: _accessKey);
+    await _storage.delete(key: _refreshKey);
+  }
 }
 
 /// Implementação em memória, para testes.
 final class InMemoryTokenStorage implements TokenStorage {
-  InMemoryTokenStorage([this._token]);
+  InMemoryTokenStorage([this._tokens]);
 
-  String? _token;
-
-  @override
-  Future<String?> read() async => _token;
+  AuthTokens? _tokens;
 
   @override
-  Future<void> write(String token) async => _token = token;
+  Future<AuthTokens?> read() async => _tokens;
 
   @override
-  Future<void> clear() async => _token = null;
+  Future<void> write(AuthTokens tokens) async => _tokens = tokens;
+
+  @override
+  Future<void> clear() async => _tokens = null;
 }

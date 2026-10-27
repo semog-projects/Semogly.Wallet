@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Chamadas à API (o template do Flutter só declara a permissão nos builds de debug/profile) -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- A MainActivity não declara android:taskAffinity="" (padrão do template do Flutter): com ele, o retorno
+         do login no Keycloak (flutter_appauth) não traz o app de volta para a frente -->
     <application
         android:label="Semogly Wallet"
         android:name="${applicationName}"
@@ -9,7 +11,6 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"

@@ -5,7 +5,7 @@ import 'package:logging/logging.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 
 import '../api/api_providers.dart';
-import '../auth/token_storage.dart';
+import '../auth/session_tokens.dart';
 import '../config/app_config.dart';
 
 enum TransferProgress { pending, completed, failed }
@@ -35,7 +35,7 @@ abstract interface class TransferUpdatesSource {
 }
 
 final transferUpdatesSourceProvider = Provider<TransferUpdatesSource>(
-  (ref) => SignalRTransferUpdates(ref.watch(tokenStorageProvider)),
+  (ref) => SignalRTransferUpdates(ref.watch(sessionTokensProvider)),
 );
 
 /// Atualizações de uma conta compartilhadas entre as telas. A tela da conta mantém a conexão aberta
@@ -48,9 +48,9 @@ final accountUpdatesProvider = StreamProvider.autoDispose.family<TransferUpdate,
 /// Conexão SignalR enquanto houver ouvinte, autenticada pelo accessTokenFactory (no app nativo o token vai
 /// no header Authorization, inclusive no WebSocket); a conta é assinada com SubscribeToAccount.
 final class SignalRTransferUpdates implements TransferUpdatesSource {
-  SignalRTransferUpdates(this._storage);
+  SignalRTransferUpdates(this._tokens);
 
-  final TokenStorage _storage;
+  final SessionTokens _tokens;
 
   static final _logger = Logger('signalr');
 
@@ -65,7 +65,7 @@ final class SignalRTransferUpdates implements TransferUpdatesSource {
             .withUrl(
               '${AppConfig.gatewayUrl}/hubs/transfers',
               options: HttpConnectionOptions(
-                accessTokenFactory: () async => await _storage.read() ?? '',
+                accessTokenFactory: () async => await _tokens.accessToken() ?? '',
                 logger: _logger,
               ),
             )
