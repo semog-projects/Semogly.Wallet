@@ -272,6 +272,12 @@ namespace Semogly.Wallet.Transfers.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<Guid?>("FraudCheckTimeoutTokenId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("LedgerTimeoutTokenId")
+                        .HasColumnType("uuid");
+
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()

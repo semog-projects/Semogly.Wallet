@@ -35,6 +35,13 @@ internal sealed class CreditAccountConsumer(ICommandHandler<CreditForTransferCom
             context.CancellationToken);
 }
 
+internal sealed class CancelTransferPostingConsumer(ICommandHandler<CancelTransferPostingCommand> handler)
+    : IConsumer<CancelTransferPosting>
+{
+    public Task Consume(ConsumeContext<CancelTransferPosting> context) =>
+        handler.HandleOrThrowAsync(new CancelTransferPostingCommand(context.Message.TransferId), context.CancellationToken);
+}
+
 file static class CommandHandlerExtensions
 {
     /// <summary>Falhas viram exceção para acionar o retry e, esgotado, a fila de erro.</summary>

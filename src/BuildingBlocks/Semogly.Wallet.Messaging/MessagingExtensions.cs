@@ -23,10 +23,12 @@ public static class MessagingExtensions
     /// <param name="builder">Builder do host.</param>
     /// <param name="serviceName">Prefixo das filas do serviço (ver <see cref="AddMessagingCore"/>).</param>
     /// <param name="configure">Registro de consumers e sagas.</param>
+    /// <param name="configureBus">Ajustes no barramento do RabbitMQ (ex.: agendador de mensagens).</param>
     public static IHostApplicationBuilder AddMessaging<TDbContext>(
         this IHostApplicationBuilder builder,
         string serviceName,
-        Action<IBusRegistrationConfigurator>? configure = null)
+        Action<IBusRegistrationConfigurator>? configure = null,
+        Action<IBusRegistrationContext, IRabbitMqBusFactoryConfigurator>? configureBus = null)
         where TDbContext : DbContext =>
         builder.AddMessagingCore(
             serviceName,
@@ -40,7 +42,8 @@ public static class MessagingExtensions
 
                 configure?.Invoke(bus);
             },
-            (context, endpoint) => endpoint.UseEntityFrameworkOutbox<TDbContext>(context));
+            (context, endpoint) => endpoint.UseEntityFrameworkOutbox<TDbContext>(context),
+            configureBus);
 
     /// <summary>
     /// Variante para serviços sem banco relacional: usa o in-memory outbox, que só publica as mensagens
@@ -59,7 +62,8 @@ public static class MessagingExtensions
         this IHostApplicationBuilder builder,
         string serviceName,
         Action<IBusRegistrationConfigurator> configure,
-        Action<IRegistrationContext, IReceiveEndpointConfigurator> configureOutbox)
+        Action<IRegistrationContext, IReceiveEndpointConfigurator> configureOutbox,
+        Action<IBusRegistrationContext, IRabbitMqBusFactoryConfigurator>? configureBus = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(serviceName);
 
@@ -84,6 +88,7 @@ public static class MessagingExtensions
             bus.UsingRabbitMq((context, rabbit) =>
             {
                 rabbit.Host(new Uri(connectionString));
+                configureBus?.Invoke(context, rabbit);
                 rabbit.ConfigureEndpoints(context);
             });
         });

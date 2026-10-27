@@ -15,6 +15,7 @@ public class TransferPostingTests
     private static readonly DateTimeOffset Now = new(2026, 10, 25, 12, 0, 0, TimeSpan.Zero);
 
     private readonly FakeLedgerAccountRepository _repository = new();
+    private readonly FakeTransferPostingRepository _postings = new();
     private readonly FakeEventPublisher _publisher = new();
     private readonly FakeUnitOfWork _unitOfWork = new();
     private readonly FixedTimeProvider _clock = new(Now);
@@ -34,12 +35,23 @@ public class TransferPostingTests
             .HandleAsync(new DepositCommand(accountId, amount), Ct);
 
     private Task<Result> DebitAsync(Guid accountId, decimal amount) =>
-        new DebitForTransferCommandHandler(_repository, _publisher, _unitOfWork, _clock)
+        new DebitForTransferCommandHandler(_repository, _postings, _publisher, _unitOfWork, _clock)
             .HandleAsync(new DebitForTransferCommand(_transferId, accountId, amount), Ct);
 
     private Task<Result> CreditAsync(Guid accountId, decimal amount) =>
-        new CreditForTransferCommandHandler(_repository, _publisher, _unitOfWork, _clock)
+        new CreditForTransferCommandHandler(_repository, _postings, _publisher, _unitOfWork, _clock)
             .HandleAsync(new CreditForTransferCommand(_transferId, accountId, amount), Ct);
+
+    private Task<Result> CancelAsync() =>
+        new CancelTransferPostingCommandHandler(_repository, _postings, _publisher, _unitOfWork, _clock)
+            .HandleAsync(new CancelTransferPostingCommand(_transferId), Ct);
+
+    private async Task FundedAccountsAsync(decimal deposit)
+    {
+        await OpenAsync(_source);
+        await OpenAsync(_destination);
+        await DepositAsync(_source, deposit);
+    }
 
     [Fact]
     public async Task OpenAccount_WhenAlreadyOpen_ShouldBeIdempotent()
@@ -132,5 +144,80 @@ public class TransferPostingTests
         Assert.Equal(100m, _repository.BalanceOf(_source));
         Assert.Equal(0m, _repository.BalanceOf(SystemAccounts.Clearing));
         Assert.Equal(0m, _repository.TotalBalance());
+    }
+
+    [Fact]
+    public async Task Debit_WhenRedelivered_ShouldPostOnlyOnce()
+    {
+        await FundedAccountsAsync(100m);
+
+        await DebitAsync(_source, 60m);
+        await DebitAsync(_source, 60m);
+
+        Assert.Equal(40m, _repository.BalanceOf(_source));
+        Assert.Single(_publisher.Published.OfType<AccountDebited>());
+    }
+
+    [Fact]
+    public async Task Cancel_BeforeDebit_ShouldReportCancelledAndIgnoreLateDebit()
+    {
+        await FundedAccountsAsync(100m);
+
+        await CancelAsync();
+        await DebitAsync(_source, 60m);
+
+        var cancelled = Assert.Single(_publisher.Published.OfType<TransferPostingCancelled>());
+        Assert.False(cancelled.Refunded);
+        Assert.Equal(100m, _repository.BalanceOf(_source));
+        Assert.Empty(_publisher.Published.OfType<AccountDebited>());
+    }
+
+    [Fact]
+    public async Task Cancel_AfterDebit_ShouldRefundSourceAndIgnoreLateCredit()
+    {
+        await FundedAccountsAsync(100m);
+        await DebitAsync(_source, 60m);
+
+        await CancelAsync();
+        await CreditAsync(_destination, 60m);
+
+        Assert.True(Assert.Single(_publisher.Published.OfType<TransferPostingCancelled>()).Refunded);
+        Assert.Equal(100m, _repository.BalanceOf(_source));
+        Assert.Equal(0m, _repository.BalanceOf(_destination));
+        Assert.Equal(0m, _repository.BalanceOf(SystemAccounts.Clearing));
+        Assert.Equal(0m, _repository.TotalBalance());
+
+        // O estorno é um crédito na origem (o Accounts atualiza o saldo por ele)
+        var refund = Assert.Single(_publisher.Published.OfType<AccountCredited>(), c => c.TransferId == _transferId);
+        Assert.Equal(_source, refund.AccountId);
+    }
+
+    [Fact]
+    public async Task Cancel_AfterCredit_ShouldReportAlreadyCompletedWithoutRefund()
+    {
+        await FundedAccountsAsync(100m);
+        await DebitAsync(_source, 60m);
+        await CreditAsync(_destination, 60m);
+
+        await CancelAsync();
+
+        Assert.Single(_publisher.Published.OfType<TransferPostingAlreadyCompleted>());
+        Assert.Empty(_publisher.Published.OfType<TransferPostingCancelled>());
+        Assert.Equal(40m, _repository.BalanceOf(_source));
+        Assert.Equal(60m, _repository.BalanceOf(_destination));
+    }
+
+    [Fact]
+    public async Task Cancel_WhenRedelivered_ShouldRefundOnlyOnce()
+    {
+        await FundedAccountsAsync(100m);
+        await DebitAsync(_source, 60m);
+
+        await CancelAsync();
+        await CancelAsync();
+
+        Assert.Equal(100m, _repository.BalanceOf(_source));
+        Assert.Equal(0m, _repository.TotalBalance());
+        Assert.All(_publisher.Published.OfType<TransferPostingCancelled>(), c => Assert.True(c.Refunded));
     }
 }

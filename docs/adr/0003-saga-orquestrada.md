@@ -11,7 +11,7 @@ Se o crédito no destino falhar depois de a origem já ter sido debitada, o sist
 
 Usar uma **saga orquestrada** com o state machine do MassTransit (`TransferStateMachine`), em vez de coreografia:
 
-- **Estados:** `AwaitingFraudCheck → AwaitingDebit → AwaitingCredit → (AwaitingRefund)`.
+- **Estados:** `AwaitingFraudCheck → AwaitingDebit → AwaitingCredit → (AwaitingRefund | AwaitingCancellation)`.
 - **Compensação:** se o crédito for recusado, a saga envia um `CreditAccount` de volta para a origem (estorno) e
   encerra como `Failed` com o motivo "Estornada: …".
 - **Persistência:** o estado da saga fica no Postgres do Transfers, com **concorrência otimista** (`xmin`), no
@@ -27,4 +27,4 @@ Usar uma **saga orquestrada** com o state machine do MassTransit (`TransferState
   - A compensação é determinística.
 - **Negativas:**
   - O Transfers concentra o conhecimento do fluxo.
-  - Ainda não há timeout para respostas que não chegam, como o antifraude indisponível.
+  - Não havia timeout para respostas que não chegam; resolvido na [ADR 0012](0012-timeouts-da-saga.md).

@@ -18,10 +18,8 @@ public sealed class TransferStateMachineTests : IAsyncLifetime
     private static readonly Guid Destination = Guid.NewGuid();
     private const decimal Amount = 250m;
 
-    private readonly ServiceProvider _provider = new ServiceCollection()
-        .AddSingleton(TimeProvider.System)
-        .AddMassTransitTestHarness(bus => bus.AddSagaStateMachine<TransferStateMachine, TransferState>())
-        .BuildServiceProvider(validateScopes: true);
+    // Prazos padrão: nos cenários abaixo as respostas chegam bem antes dos timeouts
+    private readonly ServiceProvider _provider = SagaTestHost.Build(new TransferSagaOptions());
 
     private readonly Guid _transferId = Guid.CreateVersion7();
 

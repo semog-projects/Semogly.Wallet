@@ -1,5 +1,6 @@
 using Semogly.Wallet.Ledger.Application.Abstractions;
 using Semogly.Wallet.Ledger.Domain.Accounts;
+using Semogly.Wallet.Ledger.Domain.Transfers;
 
 namespace Semogly.Wallet.Ledger.UnitTests.Fakes;
 
@@ -28,6 +29,26 @@ internal sealed class FakeLedgerAccountRepository : ILedgerAccountRepository
     public decimal TotalBalance() => Streams.Keys.Sum(BalanceOf);
 
     public void Seed(LedgerAccount account) => SaveAsync(account, CancellationToken.None);
+}
+
+/// <summary>Streams das transferências em memória.</summary>
+internal sealed class FakeTransferPostingRepository : ITransferPostingRepository
+{
+    public Dictionary<Guid, List<object>> Streams { get; } = [];
+
+    public Task<TransferPosting> GetAsync(Guid transferId, CancellationToken cancellationToken) =>
+        Task.FromResult(TransferPosting.Rehydrate(transferId, Streams.GetValueOrDefault(transferId) ?? []));
+
+    public Task SaveAsync(TransferPosting posting, CancellationToken cancellationToken)
+    {
+        if (!Streams.TryGetValue(posting.Id, out var events))
+        {
+            Streams[posting.Id] = events = [];
+        }
+
+        events.AddRange(posting.PendingEvents);
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class FakeUnitOfWork : IUnitOfWork

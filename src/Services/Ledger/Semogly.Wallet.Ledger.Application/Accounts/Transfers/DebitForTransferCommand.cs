@@ -1,6 +1,7 @@
 using Semogly.Wallet.Contracts.Ledger;
 using Semogly.Wallet.Ledger.Application.Abstractions;
 using Semogly.Wallet.Ledger.Domain.Accounts;
+using Semogly.Wallet.Ledger.Domain.Transfers;
 using Semogly.Wallet.SharedKernel.Messaging;
 using Semogly.Wallet.SharedKernel.Results;
 
@@ -11,6 +12,7 @@ public sealed record DebitForTransferCommand(Guid TransferId, Guid AccountId, de
 
 internal sealed class DebitForTransferCommandHandler(
     ILedgerAccountRepository accounts,
+    ITransferPostingRepository postings,
     IEventPublisher publisher,
     IUnitOfWork unitOfWork,
     TimeProvider clock) : ICommandHandler<DebitForTransferCommand>
@@ -20,6 +22,15 @@ internal sealed class DebitForTransferCommandHandler(
     public async Task<Result> HandleAsync(DebitForTransferCommand command, CancellationToken cancellationToken)
     {
         var now = clock.GetUtcNow();
+        var posting = await postings.GetAsync(command.TransferId, cancellationToken);
+
+        // Cancelada por timeout da saga (o desfecho já foi informado) ou débito já lançado: nada a fazer
+        if (!posting.CanDebit)
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return Result.Success();
+        }
+
         var source = await accounts.GetCustomerAccountAsync(command.AccountId, cancellationToken);
 
         // Recusas são desfechos de negócio: viram evento para a saga, não exceção
@@ -37,9 +48,11 @@ internal sealed class DebitForTransferCommandHandler(
 
         var clearing = await accounts.GetOrOpenSystemAccountAsync(SystemAccounts.Clearing, now, cancellationToken);
         var (debit, _) = DoubleEntry.Post(source!, clearing, command.Amount, command.TransferId, Description, now);
+        posting.RecordDebit(source!.Id, command.Amount, now);
 
-        await accounts.SaveAsync(source!, cancellationToken);
+        await accounts.SaveAsync(source, cancellationToken);
         await accounts.SaveAsync(clearing, cancellationToken);
+        await postings.SaveAsync(posting, cancellationToken);
         await publisher.PublishAsync(
             new AccountDebited(debit.EntryId, debit.AccountId, debit.Amount, command.TransferId, now), cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);

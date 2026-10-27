@@ -4,10 +4,17 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="MassTransit.Quartz" />
+    <PackageReference Include="Quartz.Serialization.SystemTextJson" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Tabelas do Quartz, criadas por uma migration do EF -->
+    <EmbeddedResource Include="Persistence\Scripts\*.sql" />
   </ItemGroup>
 
   <ItemGroup>
