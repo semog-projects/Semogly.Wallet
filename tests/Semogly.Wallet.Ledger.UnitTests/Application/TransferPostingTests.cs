@@ -16,6 +16,7 @@ public class TransferPostingTests
 
     private readonly FakeLedgerAccountRepository _repository = new();
     private readonly FakeTransferPostingRepository _postings = new();
+    private readonly FakeDepositReceiptStore _receipts = new();
     private readonly FakeEventPublisher _publisher = new();
     private readonly FakeUnitOfWork _unitOfWork = new();
     private readonly FixedTimeProvider _clock = new(Now);
@@ -31,8 +32,11 @@ public class TransferPostingTests
             .HandleAsync(new OpenLedgerAccountCommand(accountId), Ct);
 
     private async Task DepositAsync(Guid accountId, decimal amount) =>
-        await new DepositCommandHandler(_repository, _publisher, _unitOfWork, _clock)
-            .HandleAsync(new DepositCommand(accountId, amount), Ct);
+        await DepositWithKeyAsync(accountId, amount, Guid.NewGuid().ToString());
+
+    private Task<Result<DepositResponse>> DepositWithKeyAsync(Guid accountId, decimal amount, string idempotencyKey) =>
+        new DepositCommandHandler(_repository, _receipts, _publisher, _unitOfWork, _clock)
+            .HandleAsync(new DepositCommand(accountId, amount, idempotencyKey), Ct);
 
     private Task<Result> DebitAsync(Guid accountId, decimal amount) =>
         new DebitForTransferCommandHandler(_repository, _postings, _publisher, _unitOfWork, _clock)
@@ -78,11 +82,62 @@ public class TransferPostingTests
     [Fact]
     public async Task Deposit_ToUnknownAccount_ShouldReturnNotFound()
     {
-        var result = await new DepositCommandHandler(_repository, _publisher, _unitOfWork, _clock)
-            .HandleAsync(new DepositCommand(_source, 100m), Ct);
+        var result = await DepositWithKeyAsync(_source, 100m, "deposito-1");
 
         Assert.False(result.IsSuccess);
         Assert.Equal(LedgerErrors.AccountNotFound(_source), result.Error);
+    }
+
+    [Fact]
+    public async Task Deposit_RepeatedWithSameKey_ShouldReturnOriginalEntryWithoutPostingAgain()
+    {
+        await OpenAsync(_source);
+
+        var first = await DepositWithKeyAsync(_source, 100m, "pix-123");
+        var repeated = await DepositWithKeyAsync(_source, 100m, "pix-123");
+
+        Assert.True(repeated.IsSuccess);
+        Assert.Equal(first.Value, repeated.Value);
+        Assert.Equal(100m, _repository.BalanceOf(_source));
+        Assert.Single(_publisher.Published.OfType<AccountCredited>());
+    }
+
+    [Fact]
+    public async Task Deposit_SameKeyWithAnotherAmount_ShouldBeConflict()
+    {
+        await OpenAsync(_source);
+        await DepositWithKeyAsync(_source, 100m, "pix-123");
+
+        var result = await DepositWithKeyAsync(_source, 250m, "pix-123");
+
+        Assert.Equal(DepositCommandHandler.IdempotencyKeyReused, result.Error);
+        Assert.Equal(100m, _repository.BalanceOf(_source));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Deposit_WithoutKey_ShouldBeInvalid(string idempotencyKey)
+    {
+        await OpenAsync(_source);
+
+        var result = await DepositWithKeyAsync(_source, 100m, idempotencyKey);
+
+        Assert.Equal(DepositCommandHandler.InvalidIdempotencyKey, result.Error);
+        Assert.Empty(_publisher.Published);
+    }
+
+    [Fact]
+    public async Task Deposit_SameKeyInAnotherAccount_ShouldBeIndependent()
+    {
+        await OpenAsync(_source);
+        await OpenAsync(_destination);
+
+        await DepositWithKeyAsync(_source, 100m, "pix-123");
+        var other = await DepositWithKeyAsync(_destination, 40m, "pix-123");
+
+        Assert.True(other.IsSuccess);
+        Assert.Equal(40m, _repository.BalanceOf(_destination));
     }
 
     [Fact]

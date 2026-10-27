@@ -26,6 +26,34 @@ public class LedgerAccountTests
     }
 
     [Fact]
+    public void Restore_FromSnapshotAndLaterEvents_ShouldMatchFullReplay()
+    {
+        var cashIn = System();
+        var customer = Customer();
+        DoubleEntry.Post(cashIn, customer, 100m, null, "Depósito", Now);
+        DoubleEntry.Post(cashIn, customer, 50m, null, "Depósito", Now);
+        var events = customer.PendingEvents.ToList(); // aberto + 2 créditos
+
+        // Snapshot na versão 2 (aberto + 1º crédito) e o 2º crédito depois dele
+        var restored = LedgerAccount.Restore(customer.Id, LedgerAccountType.Customer, 100m, 2, events.Skip(2));
+        var replayed = LedgerAccount.Rehydrate(events);
+
+        Assert.Equal(replayed.Balance, restored.Balance);
+        Assert.Equal(150m, restored.Balance);
+        Assert.Equal(3, restored.PersistedVersion);
+        Assert.Equal(replayed.PersistedVersion, restored.PersistedVersion);
+    }
+
+    [Fact]
+    public void Version_ShouldCountPendingEvents()
+    {
+        var customer = Customer();
+
+        Assert.Equal(0, customer.PersistedVersion);
+        Assert.Equal(1, customer.Version);
+    }
+
+    [Fact]
     public void Post_FromCustomerWithoutFunds_ShouldThrow()
     {
         var customer = Customer();

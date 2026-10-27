@@ -132,7 +132,7 @@ Recusas do antifraude ou por saldo insuficiente encerram a saga como `Failed` se
 - **Atomicidade entre dados e mensagens:** Transactional Outbox. Nenhum evento é publicado sem o dado
   correspondente gravado, e vice-versa.
 - **Idempotência ponta a ponta:**
-  - `Idempotency-Key` obrigatória na API.
+  - `Idempotency-Key` obrigatória na transferência e no depósito.
   - Inbox (deduplicação por `MessageId`) nos consumers.
   - Chaves determinísticas no antifraude e nas notificações.
 - **Concorrência:** concorrência otimista na saga e nos agregados (`xmin` no Postgres, versão do stream no Marten).
@@ -246,9 +246,9 @@ ANA=$(curl -sk -X POST $GW/api/accounts -H "Authorization: Bearer $TOKEN" -H "co
 BRUNO=$(curl -sk -X POST $GW/api/accounts -H "Authorization: Bearer $OPS" -H "content-type: application/json" \
   -d '{"ownerName":"Bruno Lima","document":"98765432100","email":"bruno@email.com"}' | jq -r .id)
 
-# Depósito (simula a entrada de um PIX/boleto)
+# Depósito (simula a entrada de um PIX/boleto); repetir com a mesma chave devolve o mesmo lançamento
 curl -sk -X POST $GW/api/ledger/accounts/$ANA/deposits -H "Authorization: Bearer $OPS" \
-  -H "content-type: application/json" -d '{"amount":500}'
+  -H "Idempotency-Key: $(uuidgen)" -H "content-type: application/json" -d '{"amount":500}'
 
 # Transferência (assíncrona: 202 + acompanhar pelo GET)
 TRANSFER=$(curl -sk -X POST $GW/api/transfers -H "Authorization: Bearer $TOKEN" \
@@ -276,7 +276,7 @@ informe-o na autenticação Bearer.
 | `GET` | `/api/accounts/lookup?email=` | Destinatário pela chave (e-mail): id e nome mascarado ("Joao D."), para confirmar antes de transferir |
 | `GET` | `/api/accounts/me` | Contas do titular (e-mail do token) |
 | `GET` | `/api/accounts/{id}` · `/api/accounts/{id}/balance` | Dados e saldo da conta (titular ou `operator`) |
-| `POST` | `/api/ledger/accounts/{id}/deposits` | Depósito (papel `operator`) |
+| `POST` | `/api/ledger/accounts/{id}/deposits` | Depósito (papel `operator`; `Idempotency-Key` obrigatória: a mesma chave devolve o lançamento original) |
 | `GET` | `/api/ledger/accounts/{id}/statement` | Extrato paginado (titular ou `operator`) |
 | `POST` | `/api/transfers` | Solicita transferência a partir de conta própria (`Idempotency-Key` obrigatória; até 10 por minuto por usuário) |
 | `GET` | `/api/transfers/{id}` | Status da transferência (titular da origem ou do destino, ou `operator`) |
@@ -367,8 +367,6 @@ docs/adr/                               # decisões de arquitetura
 
 ## Próximos passos
 
-- **Ledger:** snapshots dos agregados, para evitar ler o stream inteiro a cada operação.
-- **Depósitos:** `Idempotency-Key` no endpoint.
 - **Deploy:** `azd` ou Kubernetes a partir do manifesto do Aspire.
 
 ## Licença

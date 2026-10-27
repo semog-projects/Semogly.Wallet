@@ -1,6 +1,8 @@
+using Marten;
 using Microsoft.Extensions.DependencyInjection;
 using Semogly.Wallet.IntegrationTests.Infrastructure;
 using Semogly.Wallet.Ledger.Domain.Accounts;
+using Semogly.Wallet.Ledger.Infrastructure.EventStore;
 using Semogly.Wallet.Ledger.Infrastructure.Persistence;
 
 namespace Semogly.Wallet.IntegrationTests;
@@ -64,6 +66,47 @@ public sealed class LedgerEventStoreTests(WalletFixture fixture)
 
         var account = await LoadAsync(accountId);
         Assert.Equal(10m, account!.Balance);
+    }
+
+    [Fact]
+    public async Task Snapshot_ShouldBeWrittenAtEachIntervalAndLoadLikeAFullReplay()
+    {
+        var accountId = Guid.NewGuid();
+        var cashIn = Guid.NewGuid();
+        await SaveAsync(LedgerAccount.Open(accountId, LedgerAccountType.Customer, Now));
+
+        // Aberta + 30 créditos = versão 31: snapshot gravado ao cruzar a versão 25
+        for (var i = 0; i < 30; i++)
+        {
+            await using var scope = fixture.Ledger.Services.CreateAsyncScope();
+            var accounts = scope.ServiceProvider.GetRequiredService<ILedgerAccountRepository>();
+            var account = (await accounts.GetAsync(accountId, Ct))!;
+            var counterpart = await accounts.GetAsync(cashIn, Ct) ?? LedgerAccount.Open(cashIn, LedgerAccountType.System, Now);
+
+            DoubleEntry.Post(counterpart, account, 10m, null, "Depósito", Now);
+            await accounts.SaveAsync(counterpart, Ct);
+            await accounts.SaveAsync(account, Ct);
+            await scope.ServiceProvider.GetRequiredService<LedgerUnitOfWork>().SaveChangesAsync(Ct);
+        }
+
+        await using var query = fixture.Ledger.Services.GetRequiredService<IDocumentStore>().QuerySession();
+        var snapshot = await query.LoadAsync<LedgerAccountSnapshot>(accountId, Ct);
+        var replayed = LedgerAccount.Rehydrate((await query.Events.FetchStreamAsync(accountId, token: Ct)).Select(e => e.Data));
+        var loaded = await LoadAsync(accountId);
+
+        Assert.NotNull(snapshot);
+        Assert.Equal(MartenLedgerAccountRepository.SnapshotInterval, snapshot.Version);
+        Assert.Equal(240m, snapshot.Balance);
+        Assert.Equal(300m, replayed.Balance);
+        Assert.Equal(replayed.Balance, loaded!.Balance);
+        Assert.Equal(replayed.PersistedVersion, loaded.PersistedVersion);
+    }
+
+    private async Task SaveAsync(LedgerAccount account)
+    {
+        await using var scope = fixture.Ledger.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<ILedgerAccountRepository>().SaveAsync(account, Ct);
+        await scope.ServiceProvider.GetRequiredService<LedgerUnitOfWork>().SaveChangesAsync(Ct);
     }
 
     private static async Task<Func<Task>> PrepareDepositAsync(AsyncServiceScope scope, Guid accountId)

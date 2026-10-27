@@ -7,9 +7,14 @@ import { api, unwrap } from '@/api/client'
 import { formatCurrency } from '@/lib/format'
 import { MAX_DEPOSIT, parseAmount } from '@/lib/money'
 
-/** Registro de depósito (entrada de dinheiro externo), exclusivo do papel operator. */
+/**
+ * Registro de depósito (entrada de dinheiro externo), exclusivo do papel operator.
+ * A Idempotency-Key identifica a intenção de depósito: repetir o envio (ex.: após erro de rede) reaproveita a chave
+ * e não gera um segundo lançamento; mudar o valor ou concluir o depósito gera uma chave nova.
+ */
 export function DepositForm({ accountId }: { accountId: string }) {
   const [raw, setRaw] = useState('')
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
   const queryClient = useQueryClient()
   const amount = parseAmount(raw)
 
@@ -17,12 +22,13 @@ export function DepositForm({ accountId }: { accountId: string }) {
     mutationFn: async (value: number) =>
       unwrap(
         await api.ledger.POST('/ledger/accounts/{accountId}/deposits', {
-          params: { path: { accountId } },
+          params: { path: { accountId }, header: { 'Idempotency-Key': idempotencyKey } },
           body: { amount: value },
         }),
       ),
     onSuccess: () => {
       setRaw('')
+      setIdempotencyKey(crypto.randomUUID())
       // Extrato e livro mudam na hora (Ledger); o saldo do Accounts converge pelo evento
       void queryClient.invalidateQueries({ queryKey: ['ledger'] })
       void queryClient.invalidateQueries({ queryKey: ['accounts'] })
@@ -47,6 +53,7 @@ export function DepositForm({ accountId }: { accountId: string }) {
           value={raw}
           onChange={(event) => {
             setRaw(event.target.value)
+            setIdempotencyKey(crypto.randomUUID())
             deposit.reset()
           }}
         />

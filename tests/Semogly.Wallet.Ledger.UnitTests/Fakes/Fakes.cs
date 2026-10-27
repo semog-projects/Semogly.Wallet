@@ -1,4 +1,5 @@
 using Semogly.Wallet.Ledger.Application.Abstractions;
+using Semogly.Wallet.Ledger.Application.Accounts.Deposit;
 using Semogly.Wallet.Ledger.Domain.Accounts;
 using Semogly.Wallet.Ledger.Domain.Transfers;
 
@@ -47,6 +48,20 @@ internal sealed class FakeTransferPostingRepository : ITransferPostingRepository
         }
 
         events.AddRange(posting.PendingEvents);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeDepositReceiptStore : IDepositReceiptStore
+{
+    public Dictionary<(Guid, string), DepositReceipt> Receipts { get; } = [];
+
+    public Task<DepositReceipt?> FindAsync(Guid accountId, string idempotencyKey, CancellationToken cancellationToken) =>
+        Task.FromResult(Receipts.GetValueOrDefault((accountId, idempotencyKey)));
+
+    public Task AddAsync(DepositReceipt receipt, CancellationToken cancellationToken)
+    {
+        Receipts.Add((receipt.AccountId, receipt.IdempotencyKey), receipt);
         return Task.CompletedTask;
     }
 }
