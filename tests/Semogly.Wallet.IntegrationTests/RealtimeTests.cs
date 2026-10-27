@@ -13,7 +13,6 @@ namespace Semogly.Wallet.IntegrationTests;
 public sealed class RealtimeTests(WalletFixture fixture)
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(45);
-    private static readonly string[] OperatorRoles = ["operator"];
 
     private readonly WalletApi _api = new(fixture);
 
@@ -25,7 +24,7 @@ public sealed class RealtimeTests(WalletFixture fixture)
         var ana = await _api.OpenAccountAsync("Ana Tempo Real", initialDeposit: 100m);
         var bruno = await _api.OpenAccountAsync("Bruno Tempo Real");
 
-        await using var client = await ConnectAsync(new { username = "bruno" });
+        await using var client = await ConnectAsync("bruno.realtime@email.com", "customer");
         await client.Connection.InvokeAsync(nameof(TransfersHub.SubscribeToAccount), bruno, Ct);
 
         var (_, transfer) = await _api.RequestTransferAsync(ana, bruno, 25m);
@@ -45,7 +44,7 @@ public sealed class RealtimeTests(WalletFixture fixture)
         var bruno = await _api.OpenAccountAsync("Bruno Backoffice");
 
         // Sem assinar conta nenhuma: o papel operator entra no grupo do backoffice
-        await using var backoffice = await ConnectAsync(new { username = "backoffice", roles = OperatorRoles });
+        await using var backoffice = await ConnectAsync("operador.realtime@semogly.dev", "operator");
 
         var (_, transfer) = await _api.RequestTransferAsync(ana, bruno, 10m);
 
@@ -62,10 +61,10 @@ public sealed class RealtimeTests(WalletFixture fixture)
         Assert.Equal(HttpStatusCode.Unauthorized, error.StatusCode);
     }
 
-    private async Task<HubClient> ConnectAsync(object tokenRequest)
+    private async Task<HubClient> ConnectAsync(string username, string role)
     {
-        var response = await fixture.Gateway.CreateClient().PostAsJsonAsync("/auth/token", tokenRequest, Ct);
-        var token = (await response.Content.ReadFromJsonAsync<TokenBody>(Ct))!.AccessToken;
+        await fixture.Keycloak.CreateAsync(username, username, role);
+        var token = await fixture.Keycloak.TokenForAsync(username);
 
         var connection = BuildConnection(token);
         var updates = Channel.CreateUnbounded<TransferUpdate>();
@@ -89,8 +88,6 @@ public sealed class RealtimeTests(WalletFixture fixture)
             })
             .Build();
     }
-
-    private sealed record TokenBody(string AccessToken);
 
     private sealed class HubClient(HubConnection connection, ChannelReader<TransferUpdate> updates) : IAsyncDisposable
     {

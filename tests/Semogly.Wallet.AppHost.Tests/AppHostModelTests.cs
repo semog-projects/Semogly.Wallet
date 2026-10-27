@@ -15,6 +15,7 @@ public class AppHostModelTests
     [InlineData(ResourceNames.NotificationsDb)]
     [InlineData(ResourceNames.RabbitMq)]
     [InlineData(ResourceNames.Redis)]
+    [InlineData(ResourceNames.Keycloak)]
     public async Task AppHost_ShouldDeclareInfrastructureResource(string resourceName)
     {
         var builder = await DistributedApplicationTestingBuilder
@@ -24,7 +25,7 @@ public class AppHostModelTests
     }
 
     [Theory]
-    [InlineData(ResourceNames.AccountsApi, new[] { ResourceNames.AccountsDb, ResourceNames.RabbitMq, ResourceNames.Redis })]
+    [InlineData(ResourceNames.AccountsApi, new[] { ResourceNames.AccountsDb, ResourceNames.RabbitMq, ResourceNames.Redis, ResourceNames.Keycloak })]
     [InlineData(ResourceNames.TransfersApi, new[] { ResourceNames.TransfersDb, ResourceNames.RabbitMq })]
     [InlineData(ResourceNames.LedgerApi, new[] { ResourceNames.LedgerDb, ResourceNames.RabbitMq })]
     [InlineData(ResourceNames.FraudApi, new[] { ResourceNames.Redis, ResourceNames.RabbitMq })]
@@ -33,6 +34,7 @@ public class AppHostModelTests
     {
         ResourceNames.AccountsApi, ResourceNames.TransfersApi, ResourceNames.LedgerApi,
         ResourceNames.FraudApi, ResourceNames.NotificationsApi, ResourceNames.RabbitMq, ResourceNames.Redis,
+        ResourceNames.Keycloak,
     })]
     public async Task Service_ShouldReferenceItsInfrastructure(string serviceName, string[] expectedReferences)
     {

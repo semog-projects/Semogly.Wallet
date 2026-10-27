@@ -16,6 +16,10 @@ namespace Semogly.Wallet.IntegrationTests;
 [Collection(WalletTestGroup.Name)]
 public sealed class BffTests(WalletFixture fixture)
 {
+    private const string CustomerUser = "ana.bff@email.com";
+    private const string OperatorUser = "operador.bff@semogly.dev";
+    private const string MobileUser = "app.mobile@email.com";
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     // HTTPS para o cookie __Host- (Secure) ser aceito e reenviado pelo cliente de teste
@@ -30,7 +34,7 @@ public sealed class BffTests(WalletFixture fixture)
     {
         var browser = Browser();
 
-        var response = await LoginAsync(browser, "ana", withCsrfHeader: true);
+        var response = await LoginAsync(browser, CustomerUser, withCsrfHeader: true);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"));
@@ -43,13 +47,14 @@ public sealed class BffTests(WalletFixture fixture)
         Assert.DoesNotContain("eyJ", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
 
         var user = await browser.GetFromJsonAsync<BffExtensions.BffUser>("/bff/user", Ct);
-        Assert.Equal("ana", user!.Username);
+        Assert.Equal(CustomerUser, user!.Username);
+        Assert.Equal(["customer"], user.Roles);
     }
 
     [Fact]
     public async Task Login_WithoutCsrfHeader_ShouldBeRejected()
     {
-        var response = await LoginAsync(Browser(), "ana", withCsrfHeader: false);
+        var response = await LoginAsync(Browser(), CustomerUser, withCsrfHeader: false);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -58,7 +63,7 @@ public sealed class BffTests(WalletFixture fixture)
     public async Task CookieSession_StateChangingRequestWithoutCsrfHeader_ShouldBeRejected()
     {
         var browser = Browser();
-        await LoginAsync(browser, "ana", withCsrfHeader: true);
+        await LoginAsync(browser, CustomerUser, withCsrfHeader: true);
 
         // Simula um formulário de outro site enviando o cookie automaticamente
         var forged = await browser.PostAsync("/bff/logout", null, Ct);
@@ -75,7 +80,7 @@ public sealed class BffTests(WalletFixture fixture)
     public async Task Session_ShouldKeepTheOperatorRole()
     {
         var browser = Browser();
-        await LoginAsync(browser, "backoffice", withCsrfHeader: true, roles: ["operator"]);
+        await LoginAsync(browser, OperatorUser, withCsrfHeader: true);
 
         var user = await browser.GetFromJsonAsync<BffExtensions.BffUser>("/bff/user", Ct);
 
@@ -86,14 +91,16 @@ public sealed class BffTests(WalletFixture fixture)
     public async Task BearerClients_ShouldKeepWorkingWithoutCookie()
     {
         var api = fixture.Gateway.CreateClient();
-        var token = await api.PostAsJsonAsync("/auth/token", new { username = "app-mobile" }, Ct);
+        await fixture.Keycloak.CreateAsync(MobileUser, MobileUser, "customer");
+        var token = await api.PostAsJsonAsync(
+            "/auth/token", new { username = MobileUser, password = KeycloakTestUsers.Password }, Ct);
         var accessToken = (await token.Content.ReadFromJsonAsync<TokenBody>(Ct))!.AccessToken;
 
         using var request = new HttpRequestMessage(HttpMethod.Get, "/bff/user");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         var user = await (await api.SendAsync(request, Ct)).Content.ReadFromJsonAsync<BffExtensions.BffUser>(Ct);
 
-        Assert.Equal("app-mobile", user!.Username);
+        Assert.Equal(MobileUser, user!.Username);
     }
 
     [Fact]
@@ -119,12 +126,15 @@ public sealed class BffTests(WalletFixture fixture)
         Assert.False(proxyRequest.Headers.Contains("Cookie"));
     }
 
-    private static async Task<HttpResponseMessage> LoginAsync(
-        HttpClient browser, string username, bool withCsrfHeader, string[]? roles = null)
+    private async Task<HttpResponseMessage> LoginAsync(HttpClient browser, string username, bool withCsrfHeader)
     {
+        // Usuários reais no Keycloak; o BFF (desenvolvimento) obtém o token com usuário e senha
+        await fixture.Keycloak.CreateAsync(CustomerUser, CustomerUser, "customer");
+        await fixture.Keycloak.CreateAsync(OperatorUser, OperatorUser, "operator");
+
         using var request = new HttpRequestMessage(HttpMethod.Post, BffDefaults.LoginPath)
         {
-            Content = JsonContent.Create(new { username, roles }),
+            Content = JsonContent.Create(new { username, password = KeycloakTestUsers.Password }),
         };
 
         if (withCsrfHeader)

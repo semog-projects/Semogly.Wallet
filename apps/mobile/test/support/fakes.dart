@@ -21,7 +21,7 @@ final class FakeAuthRepository implements AuthRepository {
   Future<Session?> restore() async => saved;
 
   @override
-  Future<Session> signIn(String username) async {
+  Future<Session> signIn(String username, String password) async {
     if (failSignIn) {
       throw StateError('falhou');
     }

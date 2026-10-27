@@ -7,7 +7,7 @@
 
 Carteira digital construída com **microsserviços em .NET 10**, mensageria e os padrões que sistemas financeiros
 usam na prática: **Saga** com compensação, **Transactional Outbox/Inbox**, **Event Sourcing** com
-**partidas dobradas**, antifraude em Redis e um **API Gateway** com JWT e rate limiting.
+**partidas dobradas**, antifraude em Redis, identidade no **Keycloak** e um **API Gateway** com JWT e rate limiting.
 
 Tudo sobe com um único comando via **.NET Aspire**: bancos, broker, cache, os cinco serviços, o Gateway e o
 dashboard de observabilidade.
@@ -34,6 +34,8 @@ dashboard de observabilidade.
 ```mermaid
 flowchart LR
     client([Cliente]) -->|HTTPS + JWT| gw
+    kc[Keycloak<br/>OIDC · realm semogly-wallet]
+    gw -.->|tokens · JWKS| kc
 
     subgraph edge[Borda]
         gw[API Gateway<br/>YARP · JWT · Rate limiting · Scalar]
@@ -160,6 +162,7 @@ o lançamento, as mensagens publicadas e a deduplicação são confirmados junto
 | Mensageria | RabbitMQ 4 + MassTransit 8 (Saga state machine, Outbox/Inbox, retry, dead-letter) |
 | Persistência | PostgreSQL 18 + EF Core 10 · Marten 9 (event store e projeções) |
 | Cache e contadores | Redis 8 · HybridCache · scripts Lua |
+| Identidade | Keycloak 26 (OIDC, realm importado pelo Aspire) · JWT RS256 validado pelo Gateway e pelos serviços |
 | Borda | YARP · JWT Bearer · BFF com cookie · Rate Limiting · SignalR · Scalar (OpenAPI agregado) |
 | App do cliente | Flutter 3 · Riverpod · go_router · dio · clientes Dart gerados do OpenAPI (swagger_parser) · token no Keychain/Keystore |
 | Backoffice web | React 19 · TypeScript · Vite · TanStack Query · React Router · Tailwind + shadcn/ui · cliente gerado do OpenAPI (openapi-fetch) · Vitest |
@@ -178,36 +181,54 @@ cd Semogly.Wallet
 dotnet run --project src/Aspire/Semogly.Wallet.AppHost
 ```
 
-O AppHost sobe Postgres (com pgAdmin), RabbitMQ (com painel de gerenciamento), Redis, os cinco serviços, o
+O AppHost sobe Postgres (com pgAdmin), RabbitMQ (com painel de gerenciamento), Redis, Keycloak, os cinco serviços, o
 Gateway e o **backoffice web** (React + Vite, com `npm install` automático). As migrations e o schema do Marten são
 aplicados automaticamente em Development.
 
 | O quê | Onde |
 |---|---|
 | Dashboard do Aspire (logs, traces, métricas) | URL exibida no terminal (padrão `https://localhost:17110`) |
-| **Backoffice web** (React) | Link do recurso `backoffice` no dashboard. Login de desenvolvimento com "Entrar como operador" |
+| **Backoffice web** (React) | Link do recurso `backoffice` no dashboard. Login com `backoffice@semogly.dev` / `Senha@123` |
 | **Gateway + Scalar com toda a API** | `https://localhost:7100/scalar` |
+| **Keycloak** (console de administração) | `https://localhost:8443` · usuário `admin`, senha no parâmetro `keycloak-password` do dashboard |
 | RabbitMQ e pgAdmin | Links no dashboard do Aspire |
 | **App do cliente** (Flutter) | `cd apps/mobile && flutter run` com um emulador Android aberto (ver [apps/mobile](apps/mobile/README.md)) |
 
 > Os containers usam `ContainerLifetime.Persistent`: continuam rodando entre execuções e os dados são preservados
 > em volumes.
 
+### Usuários de demonstração
+
+O realm `semogly-wallet` é importado de
+[`Realms/semogly-wallet-realm.json`](src/Aspire/Semogly.Wallet.AppHost/Realms/semogly-wallet-realm.json) na
+subida do Keycloak. Todos usam a senha `Senha@123`:
+
+| Usuário | Papel | Uso |
+|---|---|---|
+| `maria.demo@email.com` | `customer` | App do cliente |
+| `joao.destino@email.com` | `customer` | Destinatário das transferências de exemplo |
+| `ana@email.com` | `customer` | Exemplos com `curl` |
+| `backoffice@semogly.dev` | `operator` | Backoffice web e depósitos |
+
+> O Keycloak escuta em `https://localhost:8443` (certificado de desenvolvimento do Aspire), e esse endereço é o
+> `iss` de todos os tokens, obtidos pelo Gateway ou direto no Keycloak.
+
 ---
 
 ## Testando a API
 
-Todas as rotas passam pelo Gateway em `https://localhost:7100/api/...` e exigem JWT (os exemplos usam `curl` e `jq`). Em Development, o próprio
-Gateway emite tokens:
+Todas as rotas passam pelo Gateway em `https://localhost:7100/api/...` e exigem um JWT do Keycloak (os exemplos usam
+`curl` e `jq`). Em Development, o Gateway troca usuário e senha por um token (password grant do cliente
+`wallet-gateway`):
 
 ```bash
 GW=https://localhost:7100
 
 # Token de cliente e token de operador (depósitos exigem o papel "operator")
 TOKEN=$(curl -sk -X POST $GW/auth/token -H "content-type: application/json" \
-  -d '{"username":"ana"}' | jq -r .accessToken)
+  -d '{"username":"ana@email.com","password":"Senha@123"}' | jq -r .accessToken)
 OPS=$(curl -sk -X POST $GW/auth/token -H "content-type: application/json" \
-  -d '{"username":"backoffice","roles":["operator"]}' | jq -r .accessToken)
+  -d '{"username":"backoffice@semogly.dev","password":"Senha@123"}' | jq -r .accessToken)
 
 # Abrir duas contas
 ANA=$(curl -sk -X POST $GW/api/accounts -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
@@ -236,8 +257,8 @@ informe-o na autenticação Bearer.
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `POST` | `/auth/token` | Emite JWT de desenvolvimento (app mobile, Scalar) |
-| `POST` | `/bff/login` · `/bff/logout` | Sessão do web em cookie `HttpOnly` (BFF): o JWT fica no Gateway. Exigem o header `X-CSRF: 1` |
+| `POST` | `/auth/token` | Troca usuário e senha por um token do Keycloak (só em Development: app mobile, Scalar) |
+| `POST` | `/bff/login` · `/bff/logout` | Sessão do web em cookie `HttpOnly` (BFF): os tokens ficam no Redis, do lado do Gateway. Exigem o header `X-CSRF: 1` |
 | `GET` | `/bff/user` | Usuário e papéis da sessão atual |
 | `POST` | `/api/accounts` | Abre uma conta |
 | `GET` | `/api/accounts/lookup?email=` | Destinatário pela chave (e-mail): id e nome mascarado ("Joao D."), para confirmar antes de transferir |
@@ -289,7 +310,7 @@ Os testes de integração precisam de Docker. No CI (GitHub Actions) toda a suí
 ```
 src/
 ├── Aspire/
-│   ├── Semogly.Wallet.AppHost          # orquestração local (containers, serviços, parâmetros)
+│   ├── Semogly.Wallet.AppHost          # orquestração local (containers, serviços, parâmetros, realm do Keycloak)
 │   └── Semogly.Wallet.ServiceDefaults  # OpenTelemetry, health checks, resiliência, OpenAPI
 ├── BuildingBlocks/
 │   ├── Semogly.Wallet.SharedKernel     # Result/Error, ICommandHandler/IQueryHandler, DomainException
@@ -326,15 +347,16 @@ docs/adr/                               # decisões de arquitetura
 | [0007](docs/adr/0007-antifraude-redis-lua.md) | Regras antifraude com estado no Redis via script Lua atômico |
 | [0008](docs/adr/0008-gateway-yarp-jwt.md) | API Gateway com YARP, JWT e rate limiting |
 | [0009](docs/adr/0009-testes-de-integracao.md) | Testes de integração com Testcontainers e serviços em memória |
+| [0010](docs/adr/0010-keycloak-identity-provider.md) | Keycloak como Identity Provider |
 
 ---
 
 ## Próximos passos
 
 - **Identidade e autorização:**
-  - Trocar o emissor de tokens de desenvolvimento por um Identity Provider (Keycloak ou Entra ID).
+  - Login OIDC com redirecionamento para o Keycloak no web (BFF) e no app (PKCE), no lugar do password grant.
   - Verificar se a conta da rota pertence ao usuário do token.
-- **Defesa em profundidade:** os serviços também validarem o JWT, além do Gateway.
+- **Defesa em profundidade:** todos os serviços validarem o JWT, além do Gateway (hoje só o Accounts).
 - **Ledger:** snapshots dos agregados, para evitar ler o stream inteiro a cada operação.
 - **Depósitos:** `Idempotency-Key` no endpoint.
 - **Saga:** timeout para respostas que não chegam, como o antifraude indisponível.

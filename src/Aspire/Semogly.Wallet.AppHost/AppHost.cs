@@ -22,17 +22,27 @@ var rabbitMq = builder.AddRabbitMQ(ResourceNames.RabbitMq)
 var redis = builder.AddRedis(ResourceNames.Redis)
     .WithLifetime(ContainerLifetime.Persistent);
 
-// Chave do JWT emitido pelo Gateway, gerada e persistida pelo Aspire (user secrets).
-// Também vai para os serviços que validam o token por conta própria (defesa em profundidade).
-var jwtSigningKey = builder.AddParameter(
-    ResourceNames.JwtSigningKey,
-    new GenerateParameterDefault { MinLength = 64, Special = false },
-    secret: true,
-    persist: true);
+// Identity Provider: realm importado do arquivo a cada execução (sem volume, sempre igual ao versionado).
+// HTTPS com o certificado de desenvolvimento do .NET, em porta fixa: o emissor dos tokens (iss) é o
+// endereço usado pelos clientes e precisa ser estável entre execuções.
+var keycloak = builder.AddKeycloak(ResourceNames.Keycloak)
+    .WithEndpoint("https", endpoint =>
+    {
+        endpoint.Port = 8443;
+        endpoint.TargetPort = 8443;
+
+        // Publicado direto pelo Docker: atrás do proxy do Aspire, a porta fixa não chegava ao container
+        endpoint.IsProxied = false;
+    })
+    // Emissor fixo independentemente do endereço usado na chamada (navegador, app, serviços via service
+    // discovery); chamadas de servidor continuam podendo usar o endereço interno
+    .WithEnvironment("KC_HOSTNAME", "https://localhost:8443")
+    .WithEnvironment("KC_HOSTNAME_BACKCHANNEL_DYNAMIC", "true")
+    .WithRealmImport("./Realms");
 
 // Microsserviços
 var accountsApi = builder.AddProject<Projects.Semogly_Wallet_Accounts_Api>(ResourceNames.AccountsApi)
-    .WithEnvironment("Jwt__SigningKey", jwtSigningKey)
+    .WithReference(keycloak).WaitFor(keycloak)
     .WithReference(accountsDb).WaitFor(accountsDb)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithReference(redis).WaitFor(redis)
@@ -67,7 +77,7 @@ var gateway = builder.AddProject<Projects.Semogly_Wallet_Gateway>(ResourceNames.
     .WithReference(notificationsApi).WaitFor(notificationsApi)
     .WithReference(rabbitMq).WaitFor(rabbitMq) // eventos de transferência para o SignalR
     .WithReference(redis).WaitFor(redis)       // backplane do SignalR
-    .WithEnvironment("Jwt__SigningKey", jwtSigningKey)
+    .WithReference(keycloak).WaitFor(keycloak)
     .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health");
 

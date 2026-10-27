@@ -11,6 +11,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
+    <PackageReference Include="Testcontainers.Keycloak" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.RabbitMq" />
     <PackageReference Include="Testcontainers.Redis" />
@@ -24,6 +25,11 @@
     <ProjectReference Include="..\..\src\Services\Fraud\Semogly.Wallet.Fraud.Api\Semogly.Wallet.Fraud.Api.csproj" />
     <ProjectReference Include="..\..\src\Services\Notifications\Semogly.Wallet.Notifications.Api\Semogly.Wallet.Notifications.Api.csproj" />
     <ProjectReference Include="..\..\src\Gateway\Semogly.Wallet.Gateway\Semogly.Wallet.Gateway.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Realm do Keycloak usado pelo AppHost, importado também pelo container dos testes -->
+    <None Include="..\..\src\Aspire\Semogly.Wallet.AppHost\Realms\semogly-wallet-realm.json" Link="Realms\semogly-wallet-realm.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

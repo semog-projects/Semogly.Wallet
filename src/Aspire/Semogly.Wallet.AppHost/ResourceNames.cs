@@ -16,6 +16,6 @@ public static class ResourceNames
     public const string FraudApi = "fraud-api";
     public const string NotificationsApi = "notifications-api";
     public const string Gateway = "gateway";
-    public const string JwtSigningKey = "jwt-signing-key";
+    public const string Keycloak = "keycloak";
     public const string Backoffice = "backoffice";
 }
