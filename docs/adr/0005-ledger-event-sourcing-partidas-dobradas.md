@@ -41,4 +41,5 @@ ponto do tempo. Guardar só o saldo atual, sobrescrevendo-o, perde esse históri
 - **Negativas:**
   - Os snapshots são um documento a mais por conta e precisam acompanhar mudanças no estado do agregado
     (um campo novo exige descartar os snapshots antigos).
-  - A conta Clearing é um ponto de contenção (stream "quente") sob alta concorrência.
+  - A conta Clearing era um ponto de contenção (stream "quente") sob alta concorrência; hoje é particionada
+    ([ADR 0013](0013-capacidade-sob-carga.md)). A CashIn segue única (os depósitos são bem menos frequentes).

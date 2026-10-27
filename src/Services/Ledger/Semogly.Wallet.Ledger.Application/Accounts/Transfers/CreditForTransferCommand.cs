@@ -56,7 +56,7 @@ internal sealed class CreditForTransferCommandHandler(
             return Result.Success();
         }
 
-        var clearing = await accounts.GetOrOpenSystemAccountAsync(SystemAccounts.Clearing, now, cancellationToken);
+        var clearing = await accounts.GetOrOpenSystemAccountAsync(SystemAccounts.ClearingFor(command.TransferId), now, cancellationToken);
         var (_, credit) = DoubleEntry.Post(clearing, destination, command.Amount, command.TransferId, Description, now);
         posting.RecordCredit(destination.Id, now);
 

@@ -22,6 +22,8 @@ public static class DependencyInjection
     /// <summary>Schema do Postgres com as tabelas do Marten (eventos e documentos).</summary>
     public const string EventStoreSchema = "ledger";
 
+    private const int PostingConcurrency = 4;
+
     public static IHostApplicationBuilder AddInfrastructure(this IHostApplicationBuilder builder)
     {
         // Sem retry automático do EF: ele não suporta as transações explícitas compartilhadas com o Marten
@@ -58,9 +60,11 @@ public static class DependencyInjection
         builder.AddMessaging<LedgerDbContext>("ledger", bus =>
         {
             bus.AddConsumer<AccountCreatedConsumer>();
-            bus.AddConsumer<DebitAccountConsumer>();
-            bus.AddConsumer<CreditAccountConsumer>();
-            bus.AddConsumer<CancelTransferPostingConsumer>();
+            // Lançamentos de transferência disputam streams (contas e partições da Clearing): paralelismo alto só
+            // gera conflitos de concorrência e retries. Poucos lançamentos simultâneos por fila mantêm a vazão
+            bus.AddConsumer<DebitAccountConsumer>().Endpoint(e => e.ConcurrentMessageLimit = PostingConcurrency);
+            bus.AddConsumer<CreditAccountConsumer>().Endpoint(e => e.ConcurrentMessageLimit = PostingConcurrency);
+            bus.AddConsumer<CancelTransferPostingConsumer>().Endpoint(e => e.ConcurrentMessageLimit = PostingConcurrency);
         });
 
         builder.Services.AddScoped<LedgerUnitOfWork>();

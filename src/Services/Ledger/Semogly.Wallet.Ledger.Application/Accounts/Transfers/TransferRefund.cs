@@ -20,7 +20,7 @@ internal static class TransferRefund
     {
         var source = await accounts.GetCustomerAccountAsync(posting.SourceAccountId!.Value, cancellationToken)
             ?? throw new InvalidOperationException($"Conta de origem {posting.SourceAccountId} não encontrada para o estorno.");
-        var clearing = await accounts.GetOrOpenSystemAccountAsync(SystemAccounts.Clearing, now, cancellationToken);
+        var clearing = await accounts.GetOrOpenSystemAccountAsync(SystemAccounts.ClearingFor(posting.Id), now, cancellationToken);
 
         var (_, credit) = DoubleEntry.Post(clearing, source, posting.Amount, posting.Id, Description, now);
         posting.RecordRefund(now);

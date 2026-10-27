@@ -5,6 +5,9 @@ var builder = DistributedApplication.CreateBuilder(args);
 // Infraestrutura compartilhada. Containers persistentes evitam recriação a cada execução local.
 var postgres = builder.AddPostgres(ResourceNames.Postgres)
     .WithDataVolume()
+    // Cinco serviços, cada um com o próprio pool (EF, Marten, Quartz): sob carga, o padrão de 100 conexões se
+    // esgota e as requisições ficam esperando conexão (medido no teste de carga). Em produção, um pooler (PgBouncer)
+    .WithArgs("-c", "max_connections=500")
     .WithPgAdmin()
     .WithLifetime(ContainerLifetime.Persistent);
 

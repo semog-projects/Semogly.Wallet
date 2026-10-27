@@ -37,9 +37,9 @@ internal sealed class SqlLedgerBookReadService(NpgsqlDataSource dataSource) : IL
             {
                 cashIn = balance;
             }
-            else if (accountId == SystemAccounts.Clearing)
+            else if (SystemAccounts.IsClearing(accountId))
             {
-                clearing = balance;
+                clearing += balance;
             }
             else
             {

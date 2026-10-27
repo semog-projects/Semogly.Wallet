@@ -23,6 +23,7 @@ dashboard de observabilidade.
 - [Como rodar](#como-rodar)
 - [Testando a API](#testando-a-api)
 - [Testes](#testes)
+- [Teste de carga](#teste-de-carga)
 - [Estrutura do repositório](#estrutura-do-repositório)
 - [Decisões de arquitetura (ADRs)](#decisões-de-arquitetura-adrs)
 - [Próximos passos](#próximos-passos)
@@ -149,6 +150,8 @@ Duas contas internas tornam isso possível:
 
 - **CashIn:** contrapartida dos depósitos. Seu saldo negativo é o total que entrou na carteira.
 - **Clearing:** dinheiro em trânsito entre o débito e o crédito da saga. Volta a zero quando as transferências terminam.
+  Particionada em 8 contas (por transferência), para não virar um ponto de contenção sob carga
+  ([ADR 0013](docs/adr/0013-capacidade-sob-carga.md)).
 
 | Operação | Débito | Crédito |
 |---|---|---|
@@ -317,6 +320,46 @@ Os testes de integração precisam de Docker. No CI (GitHub Actions) toda a suí
 
 ---
 
+## Teste de carga
+
+Script **k6** em `tests/load`, rodando em container contra o ambiente local do AppHost (já em execução):
+
+```bash
+tests/load/run.sh                                                  # cenário padrão (2 min)
+tests/load/run.sh -e TRADERS=160 -e TRANSFER_RATE=8 -e READ_RATE=12  # estresse
+```
+
+O script cria os próprios usuários no Keycloak (com as senhas de administração dos user-secrets do AppHost) e roda
+quatro cenários simultâneos pelo Gateway:
+
+| Cenário | Carga |
+|---|---|
+| Abertura de contas | Clientes novos abrem conta e consultam `/me` |
+| Depósitos | Operador, com `Idempotency-Key` (um 409 por concorrência é repetido com a mesma chave) |
+| Transferências | Entre titulares, acompanhadas até o desfecho da saga (latência ponta a ponta) |
+| Leituras | Extrato, limite diário e notificações |
+
+As transferências giram entre os titulares para respeitar os limites do próprio sistema (10 por minuto por usuário
+no Gateway, 5 por minuto por conta no antifraude): o teste mede o sistema, não os limites. Ao final, verifica os
+**invariantes**:
+- nenhuma transferência pendente;
+- livro balanceado, com a Clearing zerada;
+- saldo do Accounts igual ao do Ledger em todas as contas;
+- nenhuma mensagem nova nas filas de erro do RabbitMQ.
+
+**Resultados** (AMD Ryzen 5 5500, 12 threads, 32 GB; serviços em Debug, containers e o k6 na mesma máquina):
+
+| Execução | Transferências | Ponta a ponta p50 / p95 | `POST /transfers` p95 | Leituras p95 / p99 | Falhas |
+|---|---|---|---|---|---|
+| Padrão: 60 titulares, 3/s, 4 leituras/s | 360 / 360 | 271 ms / 514 ms | 14 ms | 11 ms / 52 ms | 0 |
+| Estresse: 160 titulares, 8/s, 12 leituras/s | 960 / 960 | 872 ms / 1,41 s | 32 ms | 22 ms / 33 ms | 0 |
+
+Os invariantes passaram nas duas execuções. Na primeira tentativa, a 8 transferências/s, o teste encontrou
+mensagens em fila de erro (contenção na conta Clearing) e vazão travada pelo limite de conexões do Postgres.
+O diagnóstico e os ajustes estão na [ADR 0013](docs/adr/0013-capacidade-sob-carga.md).
+
+---
+
 ## Estrutura do repositório
 
 ```
@@ -340,7 +383,8 @@ tests/
 ├── Semogly.Wallet.{Serviço}.UnitTests
 ├── Semogly.Wallet.ArchitectureTests
 ├── Semogly.Wallet.AppHost.Tests
-└── Semogly.Wallet.IntegrationTests
+├── Semogly.Wallet.IntegrationTests
+└── load                                # teste de carga (k6)
 docs/adr/                               # decisões de arquitetura
 ```
 
@@ -362,6 +406,7 @@ docs/adr/                               # decisões de arquitetura
 | [0010](docs/adr/0010-keycloak-identity-provider.md) | Keycloak como Identity Provider |
 | [0011](docs/adr/0011-posse-da-conta.md) | Posse da conta e validação do JWT em todos os serviços |
 | [0012](docs/adr/0012-timeouts-da-saga.md) | Timeouts da saga com cancelamento arbitrado pelo Ledger |
+| [0013](docs/adr/0013-capacidade-sob-carga.md) | Ajustes de capacidade a partir do teste de carga |
 
 ---
 
