@@ -115,8 +115,17 @@ sequenceDiagram
     T-->>C: Completed | Failed
 ```
 
-Estados da saga: `AwaitingFraudCheck → AwaitingDebit → AwaitingCredit → (AwaitingRefund) → finalizada`.
+Estados da saga: `AwaitingFraudCheck → AwaitingDebit → AwaitingCredit → (AwaitingRefund | AwaitingCancellation) → finalizada`.
 Recusas do antifraude ou por saldo insuficiente encerram a saga como `Failed` sem mover dinheiro.
+
+**Timeouts** (agendados no Quartz, persistido no Postgres):
+
+- **Antifraude sem resposta em 30 s:** a transferência falha sem mover dinheiro.
+- **Débito ou crédito sem resposta em 1 min:** a saga pede o cancelamento ao Ledger, que decide:
+  - Se o destino já recebeu, a transferência é concluída.
+  - Caso contrário, ela é cancelada, e um débito já lançado é estornado.
+  - Lançamentos atrasados depois disso são ignorados. Nunca há estorno com o crédito já feito
+    ([ADR 0012](docs/adr/0012-timeouts-da-saga.md)).
 
 **Garantias:**
 
@@ -159,7 +168,7 @@ o lançamento, as mensagens publicadas e a deduplicação são confirmados junto
 |---|---|
 | Plataforma | .NET 10, C# (latest), minimal APIs, validação nativa, ProblemDetails |
 | Orquestração local e observabilidade | .NET Aspire 13 (dashboard, OpenTelemetry, service discovery, health checks) |
-| Mensageria | RabbitMQ 4 + MassTransit 8 (Saga state machine, Outbox/Inbox, retry, dead-letter) |
+| Mensageria | RabbitMQ 4 + MassTransit 8 (Saga state machine, Outbox/Inbox, retry, dead-letter) · Quartz.NET (timeouts da saga) |
 | Persistência | PostgreSQL 18 + EF Core 10 · Marten 9 (event store e projeções) |
 | Cache e contadores | Redis 8 · HybridCache · scripts Lua |
 | Identidade | Keycloak 26 (OIDC, realm importado pelo Aspire) · JWT RS256 validado pelo Gateway e por cada serviço · posse da conta verificada pelo Accounts |
@@ -352,6 +361,7 @@ docs/adr/                               # decisões de arquitetura
 | [0009](docs/adr/0009-testes-de-integracao.md) | Testes de integração com Testcontainers e serviços em memória |
 | [0010](docs/adr/0010-keycloak-identity-provider.md) | Keycloak como Identity Provider |
 | [0011](docs/adr/0011-posse-da-conta.md) | Posse da conta e validação do JWT em todos os serviços |
+| [0012](docs/adr/0012-timeouts-da-saga.md) | Timeouts da saga com cancelamento arbitrado pelo Ledger |
 
 ---
 
@@ -359,7 +369,6 @@ docs/adr/                               # decisões de arquitetura
 
 - **Ledger:** snapshots dos agregados, para evitar ler o stream inteiro a cada operação.
 - **Depósitos:** `Idempotency-Key` no endpoint.
-- **Saga:** timeout para respostas que não chegam, como o antifraude indisponível.
 - **Deploy:** `azd` ou Kubernetes a partir do manifesto do Aspire.
 
 ## Licença

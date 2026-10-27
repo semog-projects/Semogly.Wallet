@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<OpenLedgerAccountCommand>, OpenLedgerAccountCommandHandler>();
         services.AddScoped<ICommandHandler<DebitForTransferCommand>, DebitForTransferCommandHandler>();
         services.AddScoped<ICommandHandler<CreditForTransferCommand>, CreditForTransferCommandHandler>();
+        services.AddScoped<ICommandHandler<CancelTransferPostingCommand>, CancelTransferPostingCommandHandler>();
         services.AddScoped<ICommandHandler<DepositCommand, DepositResponse>, DepositCommandHandler>();
         services.AddScoped<IQueryHandler<GetStatementQuery, StatementResponse>, GetStatementQueryHandler>();
         services.AddScoped<IQueryHandler<GetBookQuery, LedgerBookResponse>, GetBookQueryHandler>();

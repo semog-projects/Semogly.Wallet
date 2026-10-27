@@ -28,6 +28,9 @@
     <PackageVersion Include="MassTransit" Version="8.5.12" />
     <PackageVersion Include="MassTransit.RabbitMQ" Version="8.5.12" />
     <PackageVersion Include="MassTransit.EntityFrameworkCore" Version="8.5.12" />
+    <!-- Agendamento persistente (timeouts da saga); MassTransit 8 aceita Quartz 3.x -->
+    <PackageVersion Include="MassTransit.Quartz" Version="8.5.12" />
+    <PackageVersion Include="Quartz.Serialization.SystemTextJson" Version="3.22.9" />
   </ItemGroup>
 
   <ItemGroup Label="Event Sourcing">

@@ -18,6 +18,11 @@ public sealed class TransferState : SagaStateMachineInstance
 
     public DateTimeOffset CreatedAt { get; set; }
 
+    /// <summary>Agendamentos pendentes dos timeouts (cancelados quando a resposta chega a tempo).</summary>
+    public Guid? FraudCheckTimeoutTokenId { get; set; }
+
+    public Guid? LedgerTimeoutTokenId { get; set; }
+
     /// <summary>Concorrência otimista (xmin): evita que duas mensagens avancem a mesma saga ao mesmo tempo.</summary>
     public uint RowVersion { get; set; }
 }
