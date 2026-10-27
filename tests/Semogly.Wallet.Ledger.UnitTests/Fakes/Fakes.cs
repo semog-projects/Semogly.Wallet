@@ -26,6 +26,9 @@ internal sealed class FakeLedgerAccountRepository : ILedgerAccountRepository
 
     public decimal BalanceOf(Guid accountId) => LedgerAccount.Rehydrate(Streams[accountId]).Balance;
 
+    /// <summary>Saldo em trânsito, somando as partições da conta Clearing.</summary>
+    public decimal ClearingBalance() => Streams.Keys.Where(SystemAccounts.IsClearing).Sum(BalanceOf);
+
     /// <summary>Partidas dobradas: a soma de todos os saldos do livro deve ser zero.</summary>
     public decimal TotalBalance() => Streams.Keys.Sum(BalanceOf);
 

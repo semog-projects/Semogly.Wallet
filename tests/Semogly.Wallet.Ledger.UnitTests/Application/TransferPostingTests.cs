@@ -148,13 +148,13 @@ public class TransferPostingTests
         await DepositAsync(_source, 500m);
 
         await DebitAsync(_source, 200m);
-        Assert.Equal(200m, _repository.BalanceOf(SystemAccounts.Clearing));
+        Assert.Equal(200m, _repository.ClearingBalance());
 
         await CreditAsync(_destination, 200m);
 
         Assert.Equal(300m, _repository.BalanceOf(_source));
         Assert.Equal(200m, _repository.BalanceOf(_destination));
-        Assert.Equal(0m, _repository.BalanceOf(SystemAccounts.Clearing));
+        Assert.Equal(0m, _repository.ClearingBalance());
         Assert.Equal(0m, _repository.TotalBalance());
         Assert.Contains(_publisher.Published, e => e is AccountDebited d && d.TransferId == _transferId);
         Assert.Contains(_publisher.Published, e => e is AccountCredited c && c.TransferId == _transferId);
@@ -197,7 +197,7 @@ public class TransferPostingTests
         await CreditAsync(_source, 100m);
 
         Assert.Equal(100m, _repository.BalanceOf(_source));
-        Assert.Equal(0m, _repository.BalanceOf(SystemAccounts.Clearing));
+        Assert.Equal(0m, _repository.ClearingBalance());
         Assert.Equal(0m, _repository.TotalBalance());
     }
 
@@ -239,7 +239,7 @@ public class TransferPostingTests
         Assert.True(Assert.Single(_publisher.Published.OfType<TransferPostingCancelled>()).Refunded);
         Assert.Equal(100m, _repository.BalanceOf(_source));
         Assert.Equal(0m, _repository.BalanceOf(_destination));
-        Assert.Equal(0m, _repository.BalanceOf(SystemAccounts.Clearing));
+        Assert.Equal(0m, _repository.ClearingBalance());
         Assert.Equal(0m, _repository.TotalBalance());
 
         // O estorno é um crédito na origem (o Accounts atualiza o saldo por ele)

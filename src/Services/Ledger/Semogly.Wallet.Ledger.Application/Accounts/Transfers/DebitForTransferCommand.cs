@@ -46,7 +46,7 @@ internal sealed class DebitForTransferCommandHandler(
             return Result.Success();
         }
 
-        var clearing = await accounts.GetOrOpenSystemAccountAsync(SystemAccounts.Clearing, now, cancellationToken);
+        var clearing = await accounts.GetOrOpenSystemAccountAsync(SystemAccounts.ClearingFor(command.TransferId), now, cancellationToken);
         var (debit, _) = DoubleEntry.Post(source!, clearing, command.Amount, command.TransferId, Description, now);
         posting.RecordDebit(source!.Id, command.Amount, now);
 

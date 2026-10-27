@@ -1,3 +1,4 @@
+using System.Data.Common;
 using MassTransit;
 using MassTransit.Logging;
 using MassTransit.Monitoring;
@@ -79,7 +80,18 @@ public static class MessagingExtensions
             // Retry precisa envolver o outbox para que cada tentativa comece do zero
             bus.AddConfigureEndpointsCallback((context, _, endpoint) =>
             {
+                // Falhas em geral: poucas tentativas espaçadas e, esgotadas, a fila de erro
                 endpoint.UseMessageRetry(retry => retry.Intervals(100, 500, 1_000, 5_000));
+
+                // Conflitos de concorrência (outro consumer gravou o mesmo dado primeiro, como o stream da conta
+                // Clearing, tocado por toda transferência): repetir com o estado novo resolve, então são muitas
+                // tentativas rápidas antes de cair no retry geral
+                endpoint.UseMessageRetry(retry =>
+                {
+                    retry.Handle<Exception>(IsConcurrencyConflict);
+                    retry.Exponential(10, TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(25));
+                });
+
                 configureOutbox(context, endpoint);
             });
 
@@ -100,4 +112,16 @@ public static class MessagingExtensions
 
         return builder;
     }
+
+    /// <summary>
+    /// Conflito de concorrência: concorrência otimista do EF Core, falha de serialização ou deadlock do Postgres
+    /// (transientes) e versão de stream inesperada do Marten (identificada pelo nome, sem depender do Marten aqui).
+    /// </summary>
+    internal static bool IsConcurrencyConflict(Exception exception) =>
+        exception is DbUpdateConcurrencyException or DbException { IsTransient: true }
+        || IsOrDerivesFrom(exception.GetType(), "JasperFx.ConcurrencyException")
+        || (exception.InnerException is { } inner && IsConcurrencyConflict(inner));
+
+    private static bool IsOrDerivesFrom(Type? type, string fullName) =>
+        type is not null && (type.FullName == fullName || IsOrDerivesFrom(type.BaseType, fullName));
 }
