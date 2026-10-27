@@ -67,6 +67,7 @@ public static class DependencyInjection
         builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<LedgerUnitOfWork>());
         builder.Services.AddScoped<ILedgerAccountRepository, MartenLedgerAccountRepository>();
         builder.Services.AddScoped<ITransferPostingRepository, MartenTransferPostingRepository>();
+        builder.Services.AddScoped<IDepositReceiptStore, MartenDepositReceiptStore>();
         builder.Services.AddScoped<IStatementReadService, MartenStatementReadService>();
         builder.Services.AddScoped<ILedgerBookReadService, SqlLedgerBookReadService>();
         builder.Services.AddScoped<IEventPublisher, MassTransitEventPublisher>();

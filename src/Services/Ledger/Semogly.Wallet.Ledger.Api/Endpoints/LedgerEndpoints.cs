@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
 using Semogly.Wallet.Ledger.Api.ErrorHandling;
 using Semogly.Wallet.Ledger.Application.Accounts.Deposit;
 using Semogly.Wallet.Ledger.Application.Accounts.GetBook;
@@ -11,6 +12,8 @@ public sealed record DepositRequest([Range(0.01, 1_000_000)] decimal Amount);
 
 internal static class LedgerEndpoints
 {
+    private const string IdempotencyKeyHeader = "Idempotency-Key";
+
     public static IEndpointRouteBuilder MapLedgerEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/ledger/accounts/{accountId:guid}")
@@ -21,9 +24,12 @@ internal static class LedgerEndpoints
         group.MapPost("/deposits", DepositAsync)
             .WithName("Deposit")
             .WithSummary("Registra um depósito (entrada de dinheiro externo) na conta")
-            .WithDescription("Exige o papel operator.")
+            .WithDescription(
+                "Exige o papel operator e o header Idempotency-Key: repetir o pedido com a mesma chave devolve o " +
+                "lançamento original; a mesma chave com outro valor é recusada (409).")
             .RequireAuthorization(JwtValidationExtensions.OperatorPolicy)
             .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .Produces<DepositResponse>()
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -54,10 +60,12 @@ internal static class LedgerEndpoints
     private static async Task<IResult> DepositAsync(
         Guid accountId,
         DepositRequest request,
+        [FromHeader(Name = IdempotencyKeyHeader)] string? idempotencyKey,
         ICommandHandler<DepositCommand, DepositResponse> handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.HandleAsync(new DepositCommand(accountId, request.Amount), cancellationToken);
+        var result = await handler.HandleAsync(
+            new DepositCommand(accountId, request.Amount, idempotencyKey ?? string.Empty), cancellationToken);
 
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
     }

@@ -51,10 +51,21 @@ internal sealed class WalletApi(WalletFixture fixture)
         return account.Id;
     }
 
-    public async Task<HttpStatusCode> DepositAsync(Guid accountId, decimal amount)
+    public async Task<HttpStatusCode> DepositAsync(Guid accountId, decimal amount) =>
+        (await DepositWithKeyAsync(accountId, amount, Guid.NewGuid().ToString())).StatusCode;
+
+    public async Task<HttpResponseMessage> DepositWithKeyAsync(Guid accountId, decimal amount, string? idempotencyKey)
     {
-        var response = await _ledger.PostAsJsonAsync($"/ledger/accounts/{accountId}/deposits", new { amount }, Ct);
-        return response.StatusCode;
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/ledger/accounts/{accountId}/deposits")
+        {
+            Content = JsonContent.Create(new { amount }),
+        };
+        if (idempotencyKey is not null)
+        {
+            request.Headers.Add("Idempotency-Key", idempotencyKey);
+        }
+
+        return await _ledger.SendAsync(request, Ct);
     }
 
     public async Task<(HttpStatusCode Status, TransferResponse? Transfer)> RequestTransferAsync(

@@ -19,6 +19,9 @@ public sealed class LedgerAccount
     /// <summary>Quantidade de eventos já gravados no stream (usada na concorrência otimista).</summary>
     public long PersistedVersion { get; private set; }
 
+    /// <summary>Versão do stream depois de gravar os eventos pendentes.</summary>
+    public long Version => PersistedVersion + _pendingEvents.Count;
+
     public IReadOnlyList<object> PendingEvents => _pendingEvents;
 
     public static LedgerAccount Open(Guid id, LedgerAccountType type, DateTimeOffset now)
@@ -33,17 +36,25 @@ public sealed class LedgerAccount
     {
         ArgumentNullException.ThrowIfNull(events);
 
-        var account = new LedgerAccount();
-
-        foreach (var @event in events)
-        {
-            account.Apply(@event);
-            account.PersistedVersion++;
-        }
+        var account = new LedgerAccount().ApplyPersisted(events);
 
         return account.PersistedVersion > 0
             ? account
             : throw new ArgumentException("O stream da conta não possui eventos.", nameof(events));
+    }
+
+    /// <summary>
+    /// Restaura a conta a partir de um snapshot (estado na versão <paramref name="version"/>) e dos eventos
+    /// gravados depois dele, sem reprocessar o stream inteiro.
+    /// </summary>
+    public static LedgerAccount Restore(
+        Guid id, LedgerAccountType type, decimal balance, long version, IEnumerable<object> laterEvents)
+    {
+        ArgumentNullException.ThrowIfNull(laterEvents);
+        ArgumentOutOfRangeException.ThrowIfLessThan(version, 1);
+
+        var account = new LedgerAccount { Id = id, Type = type, Balance = balance, PersistedVersion = version };
+        return account.ApplyPersisted(laterEvents);
     }
 
     /// <summary>Contas de sistema podem ficar negativas; contas de cliente, não.</summary>
@@ -70,6 +81,19 @@ public sealed class LedgerAccount
         var credited = new FundsCredited(Guid.CreateVersion7(now), Id, amount, Balance + amount, transferId, description, now);
         Raise(credited);
         return credited;
+    }
+
+    private LedgerAccount ApplyPersisted(IEnumerable<object> events)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+
+        foreach (var @event in events)
+        {
+            Apply(@event);
+            PersistedVersion++;
+        }
+
+        return this;
     }
 
     private void Raise(object @event)

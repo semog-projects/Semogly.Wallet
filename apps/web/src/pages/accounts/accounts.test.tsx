@@ -63,6 +63,7 @@ describe('contas', () => {
       .map(([input]) => input)
       .find((input): input is Request => input instanceof Request && input.method === 'POST')!
     await waitFor(async () => expect(await depositRequest.clone().json()).toEqual({ amount: 1234.56 }))
+    expect(depositRequest.headers.get('Idempotency-Key')).toMatch(/^[0-9a-f-]{36}$/)
   })
 })
 

@@ -35,7 +35,7 @@ export interface paths {
         put?: never;
         /**
          * Registra um depósito (entrada de dinheiro externo) na conta
-         * @description Exige o papel operator.
+         * @description Exige o papel operator e o header Idempotency-Key: repetir o pedido com a mesma chave devolve o lançamento original; a mesma chave com outro valor é recusada (409).
          */
         post: operations["Deposit"];
         delete?: never;
@@ -193,7 +193,9 @@ export interface operations {
     Deposit: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string;
+            };
             path: {
                 accountId: string;
             };
@@ -243,6 +245,15 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
