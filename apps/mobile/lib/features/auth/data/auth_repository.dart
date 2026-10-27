@@ -3,62 +3,84 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_providers.dart';
 import '../../../core/auth/jwt.dart';
+import '../../../core/auth/oidc_client.dart';
+import '../../../core/auth/session_tokens.dart';
 import '../../../core/auth/token_storage.dart';
-import '../../../core/config/app_config.dart';
 import '../domain/session.dart';
 
-/// Autenticação do app mobile: Bearer token (o BFF com cookie é exclusivo do web).
+/// Autenticação do app mobile: OIDC direto com o Keycloak e Bearer token na API (o BFF com cookie é do web).
 abstract interface class AuthRepository {
-  /// Sessão salva no aparelho, se o token ainda for válido.
+  /// Sessão salva no aparelho, se ainda for válida (renova o access token se preciso).
   Future<Session?> restore();
 
-  Future<Session> signIn(String username, String password);
+  /// Abre a tela de login do Keycloak; lança [SignInCancelledException] se o usuário desistir.
+  Future<Session> signIn();
 
   Future<void> signOut();
 }
 
 final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => GatewayAuthRepository(ref.watch(tokenStorageProvider), Dio(BaseOptions(baseUrl: AppConfig.gatewayUrl))),
+  (ref) => KeycloakAuthRepository(
+    ref.watch(tokenStorageProvider),
+    ref.watch(oidcClientProvider),
+    ref.watch(sessionTokensProvider),
+  ),
 );
 
-final class GatewayAuthRepository implements AuthRepository {
-  GatewayAuthRepository(this._storage, this._dio);
+final class KeycloakAuthRepository implements AuthRepository {
+  KeycloakAuthRepository(this._storage, this._oidc, this._tokens);
 
   final TokenStorage _storage;
-  final Dio _dio;
+  final OidcClient _oidc;
+  final SessionTokens _tokens;
 
   @override
   Future<Session?> restore() async {
-    final token = await _storage.read();
-    final claims = token == null ? null : JwtClaims.tryParse(token);
-
-    if (claims == null || claims.isExpired(DateTime.now().toUtc())) {
-      await _storage.clear();
+    final stored = await _storage.read();
+    if (stored == null) {
       return null;
     }
 
-    return Session(username: claims.username);
-  }
-
-  /// Desenvolvimento: o Gateway obtém o token do Keycloak com usuário e senha. O fluxo definitivo,
-  /// Authorization Code + PKCE direto com o Keycloak (flutter_appauth), chega na issue #41.
-  @override
-  Future<Session> signIn(String username, String password) async {
-    final response = await _dio.post<Map<String, dynamic>>(
-      '/auth/token',
-      data: {'username': username, 'password': password},
-    );
-    final token = response.data?['accessToken'] as String?;
-    final claims = token == null ? null : JwtClaims.tryParse(token);
-
-    if (token == null || claims == null) {
-      throw StateError('Resposta de autenticação inválida.');
+    String? token;
+    try {
+      token = await _tokens.accessToken();
+    } on DioException {
+      // Sem rede para renovar: mantém a sessão; as chamadas à API dirão se ela ainda vale
+      token = stored.accessToken;
     }
 
-    await _storage.write(token);
-    return Session(username: claims.username);
+    return token == null ? null : _sessionFrom(token);
   }
 
   @override
-  Future<void> signOut() => _storage.clear();
+  Future<Session> signIn() async {
+    final tokens = await _oidc.signIn();
+    final session = _sessionFrom(tokens.accessToken);
+
+    if (session == null) {
+      throw StateError('Token do Keycloak inválido.');
+    }
+
+    await _storage.write(tokens);
+    return session;
+  }
+
+  @override
+  Future<void> signOut() async {
+    final stored = await _storage.read();
+    await _storage.clear();
+
+    if (stored != null) {
+      try {
+        await _oidc.endSession(stored.refreshToken);
+      } on DioException {
+        // Sem rede: os tokens já saíram do aparelho e a sessão no Keycloak expira sozinha
+      }
+    }
+  }
+
+  static Session? _sessionFrom(String accessToken) {
+    final claims = JwtClaims.tryParse(accessToken);
+    return claims == null ? null : Session(username: claims.username);
+  }
 }

@@ -190,7 +190,7 @@ aplicados automaticamente em Development.
 | Dashboard do Aspire (logs, traces, métricas) | URL exibida no terminal (padrão `https://localhost:17110`) |
 | **Backoffice web** (React) | `http://localhost:5173`. "Entrar com Keycloak" com `backoffice@semogly.dev` / `Senha@123` |
 | **Gateway + Scalar com toda a API** | `https://localhost:7100/scalar` |
-| **Keycloak** (console de administração) | `https://localhost:8443` · usuário `admin`, senha no parâmetro `keycloak-password` do dashboard |
+| **Keycloak** (console de administração) | `http://localhost:8080` · usuário `admin`, senha no parâmetro `keycloak-password` do dashboard |
 | RabbitMQ e pgAdmin | Links no dashboard do Aspire |
 | **App do cliente** (Flutter) | `cd apps/mobile && flutter run` com um emulador Android aberto (ver [apps/mobile](apps/mobile/README.md)) |
 
@@ -210,8 +210,8 @@ subida do Keycloak. Todos usam a senha `Senha@123`:
 | `ana@email.com` | `customer` | Exemplos com `curl` |
 | `backoffice@semogly.dev` | `operator` | Backoffice web e depósitos |
 
-> O Keycloak escuta em `https://localhost:8443` (certificado de desenvolvimento do Aspire), e esse endereço é o
-> `iss` de todos os tokens, obtidos pelo Gateway ou direto no Keycloak.
+> O Keycloak escuta em `http://localhost:8080`, e esse endereço é o `iss` de todos os tokens (web, app, Gateway).
+> HTTP só em desenvolvimento: o emulador Android não confia no certificado de desenvolvimento do .NET.
 
 ---
 
@@ -257,7 +257,7 @@ informe-o na autenticação Bearer.
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `POST` | `/auth/token` | Troca usuário e senha por um token do Keycloak (só em Development: app mobile, Scalar) |
+| `POST` | `/auth/token` | Troca usuário e senha por um token do Keycloak (só em Development: Scalar e curl) |
 | `GET` | `/bff/login?returnUrl=` | Login OIDC do web: redireciona para o Keycloak (Authorization Code + PKCE + PAR) e cria a sessão em cookie `HttpOnly`; os tokens ficam no Redis |
 | `POST` | `/bff/logout` | Encerra a sessão do web e a do Keycloak (logout federado). Exige o header `X-CSRF: 1` |
 | `GET` | `/bff/user` | Usuário e papéis da sessão atual |
@@ -355,7 +355,6 @@ docs/adr/                               # decisões de arquitetura
 ## Próximos passos
 
 - **Identidade e autorização:**
-  - Login OIDC com PKCE no app, no lugar do password grant.
   - Verificar se a conta da rota pertence ao usuário do token.
 - **Defesa em profundidade:** todos os serviços validarem o JWT, além do Gateway (hoje só o Accounts).
 - **Ledger:** snapshots dos agregados, para evitar ler o stream inteiro a cada operação.
