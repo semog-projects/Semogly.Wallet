@@ -13,7 +13,9 @@ part 'fraud_client.g.dart';
 abstract class FraudClient {
   factory FraudClient(Dio dio, {String? baseUrl}) = _FraudClient;
 
-  /// Consulta quanto do limite diário de transferências a conta já usou hoje
+  /// Consulta quanto do limite diário de transferências a conta já usou hoje.
+  ///
+  /// Titular ou operador.
   @GET('/fraud/accounts/{accountId}/daily-usage')
   Future<DailyUsageResponse> getDailyUsage({
     @Path('accountId') required String accountId,

@@ -13,6 +13,10 @@ internal static class NotificationsEndpoints
             .WithTags("Notifications")
             .WithName("GetNotifications")
             .WithSummary("Lista as notificações enviadas para a conta, da mais recente para a mais antiga")
+            .WithDescription("Titular ou operador.")
+            .RequireAuthorization()
+            .RequireAccountAccess()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .Produces<IReadOnlyList<NotificationResponse>>()
             .ProducesValidationProblem();
 

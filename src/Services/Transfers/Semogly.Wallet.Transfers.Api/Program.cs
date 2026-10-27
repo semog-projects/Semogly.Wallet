@@ -10,6 +10,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.AddInfrastructure();
+builder.AddJwtValidation();
+
+// Posse da conta consultada no Accounts (dono do vínculo conta → titular)
+builder.AddAccountAccess();
 builder.Services.AddApplication();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -29,6 +33,8 @@ builder.Services.AddOpenApi(options => options.AddGatewayServer());
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {

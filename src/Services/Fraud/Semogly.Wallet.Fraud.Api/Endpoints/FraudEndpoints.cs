@@ -12,6 +12,10 @@ internal static class FraudEndpoints
             .WithTags("Fraud")
             .WithName("GetDailyUsage")
             .WithSummary("Consulta quanto do limite diário de transferências a conta já usou hoje")
+            .WithDescription("Titular ou operador.")
+            .RequireAuthorization()
+            .RequireAccountAccess()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .Produces<DailyUsageResponse>();
 
         return app;

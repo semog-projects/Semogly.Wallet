@@ -24,6 +24,12 @@ public static class JwtValidationExtensions
     /// <summary>Papéis do realm achatados no claim "role" por um mapeador do Keycloak.</summary>
     public const string RoleClaim = "role";
 
+    /// <summary>Papel do backoffice: acesso amplo a contas, transferências e livro-razão.</summary>
+    public const string OperatorRole = "operator";
+
+    /// <summary>Política dos endpoints exclusivos do backoffice.</summary>
+    public const string OperatorPolicy = "operator";
+
     public static AuthenticationBuilder AddWalletJwtBearer(
         this AuthenticationBuilder authentication,
         IHostEnvironment environment,
@@ -56,7 +62,8 @@ public static class JwtValidationExtensions
         builder.Services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddWalletJwtBearer(builder.Environment);
-        builder.Services.AddAuthorization();
+        builder.Services.AddAuthorizationBuilder()
+            .AddPolicy(OperatorPolicy, policy => policy.RequireRole(OperatorRole));
 
         return builder;
     }

@@ -13,13 +13,13 @@ export interface paths {
         };
         /**
          * Lista transferências com filtros (backoffice)
-         * @description No Gateway, exige o papel operator. A conta filtra tanto pela origem quanto pelo destino.
+         * @description Exige o papel operator. A conta filtra tanto pela origem quanto pelo destino.
          */
         get: operations["ListTransfers"];
         put?: never;
         /**
          * Solicita uma transferência entre contas
-         * @description Processamento assíncrono via saga: retorna 202 e o status deve ser acompanhado em GET /transfers/{id}. Repetir a requisição com a mesma Idempotency-Key devolve a transferência original.
+         * @description Processamento assíncrono via saga: retorna 202 e o status deve ser acompanhado em GET /transfers/{id}. Repetir a requisição com a mesma Idempotency-Key devolve a transferência original. A conta de origem precisa ser do usuário autenticado (ou ele ser operador).
          */
         post: operations["CreateTransfer"];
         delete?: never;
@@ -35,7 +35,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Consulta o status de uma transferência */
+        /**
+         * Consulta o status de uma transferência
+         * @description Titular da conta de origem ou de destino, ou operador.
+         */
         get: operations["GetTransfer"];
         put?: never;
         post?: never;
@@ -148,6 +151,24 @@ export interface operations {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     CreateTransfer: {
@@ -181,6 +202,24 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
             /** @description Conflict */
@@ -221,6 +260,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransferResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
             /** @description Not Found */

@@ -162,7 +162,7 @@ o lançamento, as mensagens publicadas e a deduplicação são confirmados junto
 | Mensageria | RabbitMQ 4 + MassTransit 8 (Saga state machine, Outbox/Inbox, retry, dead-letter) |
 | Persistência | PostgreSQL 18 + EF Core 10 · Marten 9 (event store e projeções) |
 | Cache e contadores | Redis 8 · HybridCache · scripts Lua |
-| Identidade | Keycloak 26 (OIDC, realm importado pelo Aspire) · JWT RS256 validado pelo Gateway e pelos serviços |
+| Identidade | Keycloak 26 (OIDC, realm importado pelo Aspire) · JWT RS256 validado pelo Gateway e por cada serviço · posse da conta verificada pelo Accounts |
 | Borda | YARP · JWT Bearer · BFF (cliente OIDC confidencial, sessão no Redis) · Rate Limiting · SignalR · Scalar (OpenAPI agregado) |
 | App do cliente | Flutter 3 · Riverpod · go_router · dio · clientes Dart gerados do OpenAPI (swagger_parser) · token no Keychain/Keystore |
 | Backoffice web | React 19 · TypeScript · Vite · TanStack Query · React Router · Tailwind + shadcn/ui · cliente gerado do OpenAPI (openapi-fetch) · Vitest |
@@ -217,8 +217,9 @@ subida do Keycloak. Todos usam a senha `Senha@123`:
 
 ## Testando a API
 
-Todas as rotas passam pelo Gateway em `https://localhost:7100/api/...` e exigem um JWT do Keycloak (os exemplos usam
-`curl` e `jq`). Em Development, o Gateway troca usuário e senha por um token (password grant do cliente
+Todas as rotas passam pelo Gateway em `https://localhost:7100/api/...` e exigem um JWT do Keycloak, validado também
+por cada serviço. Cliente só acessa as próprias contas (e-mail do token igual ao da conta); `operator` acessa
+todas (os exemplos usam `curl` e `jq`). Em Development, o Gateway troca usuário e senha por um token (password grant do cliente
 `wallet-gateway`):
 
 ```bash
@@ -230,10 +231,10 @@ TOKEN=$(curl -sk -X POST $GW/auth/token -H "content-type: application/json" \
 OPS=$(curl -sk -X POST $GW/auth/token -H "content-type: application/json" \
   -d '{"username":"backoffice@semogly.dev","password":"Senha@123"}' | jq -r .accessToken)
 
-# Abrir duas contas
+# Abrir duas contas: cliente só no próprio e-mail; operador para qualquer titular
 ANA=$(curl -sk -X POST $GW/api/accounts -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
   -d '{"ownerName":"Ana Souza","document":"12345678909","email":"ana@email.com"}' | jq -r .id)
-BRUNO=$(curl -sk -X POST $GW/api/accounts -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
+BRUNO=$(curl -sk -X POST $GW/api/accounts -H "Authorization: Bearer $OPS" -H "content-type: application/json" \
   -d '{"ownerName":"Bruno Lima","document":"98765432100","email":"bruno@email.com"}' | jq -r .id)
 
 # Depósito (simula a entrada de um PIX/boleto)
@@ -247,7 +248,8 @@ TRANSFER=$(curl -sk -X POST $GW/api/transfers -H "Authorization: Bearer $TOKEN" 
 
 curl -sk $GW/api/transfers/$TRANSFER -H "Authorization: Bearer $TOKEN"                 # Completed
 curl -sk $GW/api/ledger/accounts/$ANA/statement -H "Authorization: Bearer $TOKEN"      # extrato
-curl -sk $GW/api/notifications/accounts/$BRUNO -H "Authorization: Bearer $TOKEN"       # "Você recebeu R$ 200,00"
+curl -sk $GW/api/notifications/accounts/$BRUNO -H "Authorization: Bearer $OPS"         # "Você recebeu R$ 200,00"
+curl -sk $GW/api/accounts/$BRUNO -H "Authorization: Bearer $TOKEN"                     # 403: conta de outro titular
 ```
 
 Também dá para fazer tudo pelo **Scalar** em `https://localhost:7100/scalar`: gere o token em `/auth/token` e
@@ -261,20 +263,20 @@ informe-o na autenticação Bearer.
 | `GET` | `/bff/login?returnUrl=` | Login OIDC do web: redireciona para o Keycloak (Authorization Code + PKCE + PAR) e cria a sessão em cookie `HttpOnly`; os tokens ficam no Redis |
 | `POST` | `/bff/logout` | Encerra a sessão do web e a do Keycloak (logout federado). Exige o header `X-CSRF: 1` |
 | `GET` | `/bff/user` | Usuário e papéis da sessão atual |
-| `POST` | `/api/accounts` | Abre uma conta |
+| `POST` | `/api/accounts` | Abre uma conta (cliente só no próprio e-mail) |
 | `GET` | `/api/accounts/lookup?email=` | Destinatário pela chave (e-mail): id e nome mascarado ("Joao D."), para confirmar antes de transferir |
-| `GET` | `/api/accounts/me` | Contas do titular (e-mail do token; o Accounts valida o JWT por conta própria) |
-| `GET` | `/api/accounts/{id}` · `/api/accounts/{id}/balance` | Dados e saldo da conta |
+| `GET` | `/api/accounts/me` | Contas do titular (e-mail do token) |
+| `GET` | `/api/accounts/{id}` · `/api/accounts/{id}/balance` | Dados e saldo da conta (titular ou `operator`) |
 | `POST` | `/api/ledger/accounts/{id}/deposits` | Depósito (papel `operator`) |
-| `GET` | `/api/ledger/accounts/{id}/statement` | Extrato paginado |
-| `POST` | `/api/transfers` | Solicita transferência (`Idempotency-Key` obrigatória; até 10 por minuto por usuário) |
-| `GET` | `/api/transfers/{id}` | Status da transferência |
-| `GET` | `/api/fraud/accounts/{id}/daily-usage` | Uso do limite diário |
-| `GET` | `/api/notifications/accounts/{id}` | Notificações enviadas |
+| `GET` | `/api/ledger/accounts/{id}/statement` | Extrato paginado (titular ou `operator`) |
+| `POST` | `/api/transfers` | Solicita transferência a partir de conta própria (`Idempotency-Key` obrigatória; até 10 por minuto por usuário) |
+| `GET` | `/api/transfers/{id}` | Status da transferência (titular da origem ou do destino, ou `operator`) |
+| `GET` | `/api/fraud/accounts/{id}/daily-usage` | Uso do limite diário (titular ou `operator`) |
+| `GET` | `/api/notifications/accounts/{id}` | Notificações enviadas (titular ou `operator`) |
 | `GET` | `/api/accounts?search=` | Busca de contas por nome, e-mail ou CPF (backoffice, papel `operator`) |
 | `GET` | `/api/transfers?status=&accountId=&from=&to=` | Listagem paginada de transferências (backoffice, papel `operator`) |
 | `GET` | `/api/ledger/book` | Visão do livro: CashIn, Clearing, clientes e total, que deve ser zero (papel `operator`) |
-| `WS` | `/hubs/transfers` | SignalR: `SubscribeToAccount(id)` e o evento `TransferUpdated` (status em tempo real; `operator` recebe todas) |
+| `WS` | `/hubs/transfers` | SignalR: `SubscribeToAccount(id)` (só contas próprias) e o evento `TransferUpdated` (status em tempo real; `operator` recebe todas) |
 
 ### Regras antifraude (configuráveis em `FraudPolicy`)
 
@@ -349,14 +351,12 @@ docs/adr/                               # decisões de arquitetura
 | [0008](docs/adr/0008-gateway-yarp-jwt.md) | API Gateway com YARP, JWT e rate limiting |
 | [0009](docs/adr/0009-testes-de-integracao.md) | Testes de integração com Testcontainers e serviços em memória |
 | [0010](docs/adr/0010-keycloak-identity-provider.md) | Keycloak como Identity Provider |
+| [0011](docs/adr/0011-posse-da-conta.md) | Posse da conta e validação do JWT em todos os serviços |
 
 ---
 
 ## Próximos passos
 
-- **Identidade e autorização:**
-  - Verificar se a conta da rota pertence ao usuário do token.
-- **Defesa em profundidade:** todos os serviços validarem o JWT, além do Gateway (hoje só o Accounts).
 - **Ledger:** snapshots dos agregados, para evitar ler o stream inteiro a cada operação.
 - **Depósitos:** `Idempotency-Key` no endpoint.
 - **Saga:** timeout para respostas que não chegam, como o antifraude indisponível.

@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Consulta quanto do limite diário de transferências a conta já usou hoje */
+        /**
+         * Consulta quanto do limite diário de transferências a conta já usou hoje
+         * @description Titular ou operador.
+         */
         get: operations["GetDailyUsage"];
         put?: never;
         post?: never;
@@ -36,6 +39,14 @@ export interface components {
             limit: number;
             /** Format: double */
             remaining: number;
+        };
+        ProblemDetails: {
+            type?: null | string;
+            title?: null | string;
+            /** Format: int32 */
+            status?: null | number;
+            detail?: null | string;
+            instance?: null | string;
         };
     };
     responses: never;
@@ -64,6 +75,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DailyUsageResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

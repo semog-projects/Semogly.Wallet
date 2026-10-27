@@ -67,7 +67,7 @@ public sealed class BackofficeTests(WalletFixture fixture)
     {
         var unique = $"Zuleica{Random.Shared.Next(100_000, 999_999)}";
         var accountId = await _api.OpenAccountAsync($"{unique} Teixeira");
-        var account = (await fixture.Accounts.CreateClient()
+        var account = (await fixture.AsOperator(fixture.Accounts)
             .GetFromJsonAsync<AccountResponse>($"/accounts/{accountId}", Json, Ct))!;
 
         Assert.Equal(accountId, Assert.Single((await SearchAsync(unique.ToUpperInvariant())).Items).Id);
@@ -83,7 +83,7 @@ public sealed class BackofficeTests(WalletFixture fixture)
         var (_, transfer) = await _api.RequestTransferAsync(ana, bruno, 100m);
         await _api.WaitForOutcomeAsync(transfer!.Id);
 
-        var book = (await fixture.Ledger.CreateClient().GetFromJsonAsync<LedgerBookResponse>("/ledger/book", Json, Ct))!;
+        var book = (await fixture.AsOperator(fixture.Ledger).GetFromJsonAsync<LedgerBookResponse>("/ledger/book", Json, Ct))!;
 
         // Partidas dobradas: clientes + CashIn + Clearing = 0, mesmo com outros testes em andamento
         Assert.True(book.IsBalanced, $"Livro desbalanceado: {book}");
@@ -92,10 +92,10 @@ public sealed class BackofficeTests(WalletFixture fixture)
     }
 
     private async Task<PagedResponse<TransferResponse>> ListTransfersAsync(string query) =>
-        (await fixture.Transfers.CreateClient()
+        (await fixture.AsOperator(fixture.Transfers)
             .GetFromJsonAsync<PagedResponse<TransferResponse>>($"/transfers?{query}", Json, Ct))!;
 
     private async Task<PagedResponse<AccountResponse>> SearchAsync(string term) =>
-        (await fixture.Accounts.CreateClient()
+        (await fixture.AsOperator(fixture.Accounts)
             .GetFromJsonAsync<PagedResponse<AccountResponse>>($"/accounts?search={Uri.EscapeDataString(term)}", Json, Ct))!;
 }

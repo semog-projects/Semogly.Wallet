@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lista as notificações enviadas para a conta, da mais recente para a mais antiga */
+        /**
+         * Lista as notificações enviadas para a conta, da mais recente para a mais antiga
+         * @description Titular ou operador.
+         */
         get: operations["GetNotifications"];
         put?: never;
         post?: never;
@@ -53,6 +56,14 @@ export interface components {
         NotificationStatus: "Pending" | "Sent";
         /** @enum {unknown} */
         NotificationType: "Welcome" | "TransferSent" | "TransferReceived" | "TransferFailed";
+        ProblemDetails: {
+            type?: null | string;
+            title?: null | string;
+            /** Format: int32 */
+            status?: null | number;
+            detail?: null | string;
+            instance?: null | string;
+        };
     };
     responses: never;
     parameters: never;
@@ -91,6 +102,24 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

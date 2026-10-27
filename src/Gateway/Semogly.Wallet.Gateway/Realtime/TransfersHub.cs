@@ -21,11 +21,11 @@ public interface ITransfersClient
 }
 
 /// <summary>
-/// Hub de transferências em tempo real. O cliente assina as contas que quer acompanhar;
+/// Hub de transferências em tempo real. O cliente assina as próprias contas que quer acompanhar;
 /// operadores entram automaticamente no grupo do backoffice e recebem todas as transferências.
 /// </summary>
 [Authorize]
-public sealed class TransfersHub : Hub<ITransfersClient>
+public sealed class TransfersHub(IAccountAccess access) : Hub<ITransfersClient>
 {
     public const string Route = "/hubs/transfers";
     public const string BackofficeGroup = "backoffice";
@@ -42,9 +42,18 @@ public sealed class TransfersHub : Hub<ITransfersClient>
         await base.OnConnectedAsync();
     }
 
-    // Pendente: verificar se a conta pertence ao usuário do token (mesma limitação das rotas REST)
-    public Task SubscribeToAccount(Guid accountId) =>
-        Groups.AddToGroupAsync(Context.ConnectionId, AccountGroup(accountId));
+    /// <summary>Apenas contas do titular (operadores já recebem tudo pelo grupo do backoffice).</summary>
+    public async Task SubscribeToAccount(Guid accountId)
+    {
+        var accessToken = await GatewayAccessToken.FromAsync(Context.GetHttpContext()!);
+
+        if (!await access.CanAccessAsync(Context.User!, accessToken, accountId, Context.ConnectionAborted))
+        {
+            throw new HubException($"A conta '{accountId}' não pertence ao usuário autenticado.");
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, AccountGroup(accountId));
+    }
 
     public Task UnsubscribeFromAccount(Guid accountId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, AccountGroup(accountId));

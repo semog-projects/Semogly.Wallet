@@ -26,10 +26,10 @@ public class AppHostModelTests
 
     [Theory]
     [InlineData(ResourceNames.AccountsApi, new[] { ResourceNames.AccountsDb, ResourceNames.RabbitMq, ResourceNames.Redis, ResourceNames.Keycloak })]
-    [InlineData(ResourceNames.TransfersApi, new[] { ResourceNames.TransfersDb, ResourceNames.RabbitMq })]
-    [InlineData(ResourceNames.LedgerApi, new[] { ResourceNames.LedgerDb, ResourceNames.RabbitMq })]
-    [InlineData(ResourceNames.FraudApi, new[] { ResourceNames.Redis, ResourceNames.RabbitMq })]
-    [InlineData(ResourceNames.NotificationsApi, new[] { ResourceNames.NotificationsDb, ResourceNames.RabbitMq })]
+    [InlineData(ResourceNames.TransfersApi, new[] { ResourceNames.TransfersDb, ResourceNames.RabbitMq, ResourceNames.Keycloak, ResourceNames.AccountsApi })]
+    [InlineData(ResourceNames.LedgerApi, new[] { ResourceNames.LedgerDb, ResourceNames.RabbitMq, ResourceNames.Keycloak, ResourceNames.AccountsApi })]
+    [InlineData(ResourceNames.FraudApi, new[] { ResourceNames.Redis, ResourceNames.RabbitMq, ResourceNames.Keycloak, ResourceNames.AccountsApi })]
+    [InlineData(ResourceNames.NotificationsApi, new[] { ResourceNames.NotificationsDb, ResourceNames.RabbitMq, ResourceNames.Keycloak, ResourceNames.AccountsApi })]
     [InlineData(ResourceNames.Gateway, new[]
     {
         ResourceNames.AccountsApi, ResourceNames.TransfersApi, ResourceNames.LedgerApi,
