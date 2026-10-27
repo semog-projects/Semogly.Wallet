@@ -20,12 +20,22 @@ oferece os fluxos que o web e o app precisam (OIDC com redirecionamento e PKCE).
 - **Validação:** `AddWalletJwtBearer` no ServiceDefaults usa `AddKeycloakJwtBearer` (metadados e JWKS pelo
   service discovery), valida a audiência e mapeia `preferred_username` e `role`. O Gateway e o Accounts usam a
   mesma configuração; não há mais chave compartilhada.
-- **Login em Development** (transição até as issues #40 e #41): `POST /auth/token` e `POST /bff/login` fazem
-  password grant no cliente `wallet-gateway` e respondem 401 para credenciais inválidas.
+- **Login do web (BFF):** o Gateway é o cliente OIDC confidencial (`wallet-gateway`):
+  - `GET /bff/login` faz Authorization Code + PKCE com PAR (os parâmetros vão ao Keycloak pelo canal de
+    servidor) e `response_mode=query`; o retorno (`/bff/signin-oidc`) cria a sessão e volta a um caminho local.
+  - A sessão guarda access token, refresh token e expiração; perto de expirar, o Gateway renova os tokens
+    (`OnValidatePrincipal`). Se o Keycloak recusar a renovação, a sessão do BFF é encerrada.
+  - `POST /bff/logout` encerra a sessão no Keycloak pelo canal de servidor (endpoint de logout com o refresh
+    token), sem depender de redirecionar o navegador.
+  - O front informa sua origem pública por `X-Forwarded-Host/Proto` (aceitos só de proxies locais).
+- **Password grant só em Development** (`POST /auth/token`), para o Scalar, o curl e o app até a issue #41.
 - **Sessão do BFF no servidor:** os tokens RS256 do Keycloak deixariam o cookie grande demais (fatiado em vários
   `Set-Cookie`). O ticket fica no Redis, protegido pelo Data Protection, e o cookie carrega só a chave da sessão.
 - **Testes de integração:** `Testcontainers.Keycloak` importa o mesmo arquivo de realm; usuários são criados pela
-  API de administração e os testes usam tokens reais.
+  API de administração e os testes usam tokens reais. O login do BFF é testado de ponta a ponta, preenchendo a
+  tela de login do Keycloak.
+- **HSTS desligado no realm de desenvolvimento** (`max-age=0`): o HSTS vale para o host, não para a porta, e o
+  enviado por `https://localhost:8443` forçaria https no front em `http://localhost:5173`.
 
 ## Consequências
 
@@ -36,5 +46,7 @@ oferece os fluxos que o web e o app precisam (OIDC com redirecionamento e PKCE).
 - **Negativas:**
   - Mais um container na subida local e nos testes (alguns segundos a mais).
   - Pacotes do Aspire para Keycloak ainda em preview.
-  - O password grant (ROPC) é desaconselhado pelo OAuth 2.1; fica restrito a Development e sai com #40 e #41.
+  - O password grant (ROPC) é desaconselhado pelo OAuth 2.1; fica restrito a Development e sai do app com a #41.
+  - O realm versionado é de desenvolvimento (segredo do cliente, HTTP permitido, HSTS desligado); produção
+    precisa de outra configuração.
   - O Keycloak 26 exige e-mail nos usuários para concluir o login.

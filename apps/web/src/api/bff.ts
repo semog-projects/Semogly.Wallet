@@ -24,24 +24,15 @@ export async function getSession(): Promise<SessionUser | null> {
   return (await response.json()) as SessionUser
 }
 
-/** Login de desenvolvimento: o Gateway obtém o token do Keycloak com usuário e senha (fluxo OIDC na #40). */
-export async function login(username: string, password: string): Promise<SessionUser> {
-  const response = await fetch('/bff/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', [CSRF_HEADER]: '1' },
-    body: JSON.stringify({ username, password }),
-  })
-
-  if (!response.ok) {
-    throw new ApiError(
-      response.status,
-      response.status === 401 ? 'Usuário ou senha inválidos.' : 'Não foi possível entrar. Tente novamente.',
-    )
-  }
-
-  return (await response.json()) as SessionUser
+/**
+ * Login OIDC: é uma navegação, não um fetch. O Gateway redireciona para a tela do Keycloak e, no retorno,
+ * cria a sessão e volta para returnUrl (sempre um caminho local).
+ */
+export function loginUrl(returnUrl: string): string {
+  return `/bff/login?${new URLSearchParams({ returnUrl })}`
 }
 
+/** Encerra a sessão do web e a do Keycloak (o Gateway faz o logout federado pelo canal de servidor). */
 export async function logout(): Promise<void> {
   await fetch('/bff/logout', { method: 'POST', headers: { [CSRF_HEADER]: '1' } })
 }

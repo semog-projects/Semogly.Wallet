@@ -7,8 +7,9 @@ import { defineConfig } from 'vitest/config'
 const gateway =
   process.env.services__gateway__https__0 ?? process.env.services__gateway__http__0 ?? 'https://localhost:7100'
 
-// O Gateway usa o certificado de desenvolvimento do .NET, que o proxy do Vite não conhece
-const toGateway = { target: gateway, changeOrigin: true, secure: false }
+// O Gateway usa o certificado de desenvolvimento do .NET, que o proxy do Vite não conhece.
+// xfwd envia X-Forwarded-Host/Proto: o Gateway monta o retorno do login OIDC com a origem do front
+const toGateway = { target: gateway, changeOrigin: true, secure: false, xfwd: true }
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
