@@ -17,7 +17,9 @@ part 'accounts_client.g.dart';
 abstract class AccountsClient {
   factory AccountsClient(Dio dio, {String? baseUrl}) = _AccountsClient;
 
-  /// Abre uma nova conta na carteira
+  /// Abre uma nova conta na carteira.
+  ///
+  /// Cliente abre conta apenas no próprio e-mail (o do token); operador, para qualquer titular.
   @POST('/accounts')
   Future<AccountResponse> createAccount({
     @Body() required CreateAccountRequest body,
@@ -25,7 +27,7 @@ abstract class AccountsClient {
 
   /// Busca contas por nome, e-mail ou CPF (backoffice).
   ///
-  /// No Gateway, exige o papel operator. Sem termo, lista as contas mais recentes.
+  /// Exige o papel operator. Sem termo, lista as contas mais recentes.
   @GET('/accounts')
   Future<PagedResponseOfAccountResponse> searchAccounts({
     @Query('page') int? page = 1,
@@ -35,25 +37,27 @@ abstract class AccountsClient {
 
   /// Encontra a conta de destino pelo e-mail do titular (chave de transferência).
   ///
-  /// Exige JWT. Retorna apenas o id e o nome mascarado, para o pagador confirmar o destinatário.
+  /// Retorna apenas o id e o nome mascarado, para o pagador confirmar o destinatário.
   @GET('/accounts/lookup')
   Future<AccountLookupResponse> lookupAccount({
     @Query('email') required String email,
   });
 
-  /// Contas do titular autenticado (e-mail do token).
-  ///
-  /// Exige JWT: o próprio serviço valida o token repassado pelo Gateway.
+  /// Contas do titular autenticado (e-mail do token)
   @GET('/accounts/me')
   Future<List<AccountResponse>> getMyAccounts();
 
-  /// Consulta os dados de uma conta
+  /// Consulta os dados de uma conta.
+  ///
+  /// Titular ou operador. Os demais serviços consultam esta rota para verificar a posse da conta.
   @GET('/accounts/{id}')
   Future<AccountResponse> getAccount({
     @Path('id') required String id,
   });
 
-  /// Consulta o saldo de uma conta
+  /// Consulta o saldo de uma conta.
+  ///
+  /// Titular ou operador.
   @GET('/accounts/{id}/balance')
   Future<BalanceResponse> getBalance({
     @Path('id') required String id,

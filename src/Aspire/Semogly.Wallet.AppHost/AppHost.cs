@@ -54,22 +54,31 @@ var accountsApi = builder.AddProject<Projects.Semogly_Wallet_Accounts_Api>(Resou
     .WithReference(redis).WaitFor(redis)
     .WithHttpHealthCheck("/health");
 
+// Os demais serviços validam o JWT (Keycloak) e consultam a posse das contas no Accounts
 var transfersApi = builder.AddProject<Projects.Semogly_Wallet_Transfers_Api>(ResourceNames.TransfersApi)
+    .WithReference(keycloak).WaitFor(keycloak)
+    .WithReference(accountsApi).WaitFor(accountsApi)
     .WithReference(transfersDb).WaitFor(transfersDb)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithHttpHealthCheck("/health");
 
 var ledgerApi = builder.AddProject<Projects.Semogly_Wallet_Ledger_Api>(ResourceNames.LedgerApi)
+    .WithReference(keycloak).WaitFor(keycloak)
+    .WithReference(accountsApi).WaitFor(accountsApi)
     .WithReference(ledgerDb).WaitFor(ledgerDb)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithHttpHealthCheck("/health");
 
 var fraudApi = builder.AddProject<Projects.Semogly_Wallet_Fraud_Api>(ResourceNames.FraudApi)
+    .WithReference(keycloak).WaitFor(keycloak)
+    .WithReference(accountsApi).WaitFor(accountsApi)
     .WithReference(redis).WaitFor(redis)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithHttpHealthCheck("/health");
 
 var notificationsApi = builder.AddProject<Projects.Semogly_Wallet_Notifications_Api>(ResourceNames.NotificationsApi)
+    .WithReference(keycloak).WaitFor(keycloak)
+    .WithReference(accountsApi).WaitFor(accountsApi)
     .WithReference(notificationsDb).WaitFor(notificationsDb)
     .WithReference(rabbitMq).WaitFor(rabbitMq)
     .WithHttpHealthCheck("/health");

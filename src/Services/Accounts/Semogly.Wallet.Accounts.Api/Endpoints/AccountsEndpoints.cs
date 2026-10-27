@@ -24,52 +24,58 @@ internal static class AccountsEndpoints
 
     public static IEndpointRouteBuilder MapAccountsEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/accounts").WithTags("Accounts");
+        // Todas as rotas exigem JWT: o próprio serviço valida o token repassado pelo Gateway
+        var group = app.MapGroup("/accounts")
+            .WithTags("Accounts")
+            .RequireAuthorization()
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/", CreateAccountAsync)
             .WithName("CreateAccount")
             .WithSummary("Abre uma nova conta na carteira")
+            .WithDescription("Cliente abre conta apenas no próprio e-mail (o do token); operador, para qualquer titular.")
             .Produces<AccountResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         group.MapGet("/", SearchAccountsAsync)
             .WithName("SearchAccounts")
             .WithSummary("Busca contas por nome, e-mail ou CPF (backoffice)")
-            .WithDescription("No Gateway, exige o papel operator. Sem termo, lista as contas mais recentes.")
+            .WithDescription("Exige o papel operator. Sem termo, lista as contas mais recentes.")
+            .RequireAuthorization(JwtValidationExtensions.OperatorPolicy)
             .Produces<PagedResponse<AccountResponse>>()
             .ProducesValidationProblem();
 
         group.MapGet("/lookup", LookupAccountAsync)
             .WithName("LookupAccount")
             .WithSummary("Encontra a conta de destino pelo e-mail do titular (chave de transferência)")
-            .WithDescription("Exige JWT. Retorna apenas o id e o nome mascarado, para o pagador confirmar o destinatário.")
-            .RequireAuthorization()
+            .WithDescription("Retorna apenas o id e o nome mascarado, para o pagador confirmar o destinatário.")
             .Produces<AccountLookupResponse>()
             .ProducesValidationProblem()
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status401Unauthorized);
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/me", GetMyAccountsAsync)
             .WithName("GetMyAccounts")
             .WithSummary("Contas do titular autenticado (e-mail do token)")
-            .WithDescription("Exige JWT: o próprio serviço valida o token repassado pelo Gateway.")
-            .RequireAuthorization()
             .Produces<IReadOnlyList<AccountResponse>>()
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status401Unauthorized);
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         group.MapGet("/{id:guid}", GetAccountAsync)
             .WithName(GetAccountRoute)
             .WithSummary("Consulta os dados de uma conta")
+            .WithDescription("Titular ou operador. Os demais serviços consultam esta rota para verificar a posse da conta.")
             .Produces<AccountResponse>()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/{id:guid}/balance", GetBalanceAsync)
             .WithName("GetBalance")
             .WithSummary("Consulta o saldo de uma conta")
+            .WithDescription("Titular ou operador.")
             .Produces<BalanceResponse>()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
@@ -77,9 +83,18 @@ internal static class AccountsEndpoints
 
     private static async Task<IResult> CreateAccountAsync(
         CreateAccountRequest request,
+        ClaimsPrincipal user,
         ICommandHandler<CreateAccountCommand, AccountResponse> handler,
         CancellationToken cancellationToken)
     {
+        if (!user.IsOwnerOrOperator(request.Email.Trim()))
+        {
+            return TypedResults.Problem(
+                title: "Account.ForeignEmail",
+                detail: "Cliente só pode abrir conta no próprio e-mail.",
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
         var result = await handler.HandleAsync(
             new CreateAccountCommand(request.OwnerName, request.Document, request.Email),
             cancellationToken);
@@ -125,19 +140,37 @@ internal static class AccountsEndpoints
 
     private static async Task<IResult> GetAccountAsync(
         Guid id,
+        ClaimsPrincipal user,
         IQueryHandler<GetAccountQuery, AccountResponse> handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(new GetAccountQuery(id), cancellationToken);
 
-        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
+        if (!result.IsSuccess)
+        {
+            return result.Error.ToProblem();
+        }
+
+        return user.IsOwnerOrOperator(result.Value.Email)
+            ? TypedResults.Ok(result.Value)
+            : AccountAccessExtensions.Forbidden(id);
     }
 
     private static async Task<IResult> GetBalanceAsync(
         Guid id,
+        ClaimsPrincipal user,
+        IQueryHandler<GetAccountQuery, AccountResponse> accountHandler,
         IQueryHandler<GetBalanceQuery, BalanceResponse> handler,
         CancellationToken cancellationToken)
     {
+        // Titular a partir dos dados da conta (leitura em cache)
+        var account = await accountHandler.HandleAsync(new GetAccountQuery(id), cancellationToken);
+
+        if (account.IsSuccess && !user.IsOwnerOrOperator(account.Value.Email))
+        {
+            return AccountAccessExtensions.Forbidden(id);
+        }
+
         var result = await handler.HandleAsync(new GetBalanceQuery(id), cancellationToken);
 
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();

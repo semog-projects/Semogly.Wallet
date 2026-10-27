@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 using Testcontainers.Keycloak;
 using Testcontainers.PostgreSql;
@@ -36,6 +39,11 @@ public sealed class WalletFixture : IAsyncLifetime
     private const string KeycloakAdmin = "admin";
     private const string KeycloakAdminPassword = "admin";
 
+    /// <summary>Operador dos testes: acesso amplo, usado para preparar contas, depósitos e transferências.</summary>
+    public const string OperatorUsername = "operador.testes@semogly.dev";
+
+    private (string Token, DateTimeOffset IssuedAt)? _operatorToken;
+
     private readonly List<IAsyncDisposable> _factories = [];
 
     public WebApplicationFactory<AccountsApiMarker> Accounts { get; private set; } = null!;
@@ -55,6 +63,7 @@ public sealed class WalletFixture : IAsyncLifetime
 
         // Retorno do login OIDC no Gateway em memória (BffTests usa https://localhost)
         await Keycloak.AllowGatewayRedirectUriAsync("https://localhost/*");
+        await Keycloak.CreateAsync(OperatorUsername, OperatorUsername, "operator");
         await CreateDatabasesAsync();
 
         // Mesmos nomes de connection string que o AppHost injeta
@@ -65,6 +74,9 @@ public sealed class WalletFixture : IAsyncLifetime
 
             // Endereço do Keycloak para o service discovery (validação de tokens e password grant do Gateway)
             ["services:keycloak:http:0"] = _keycloak.GetBaseAddress().TrimEnd('/'),
+
+            // Consulta de posse das contas: o endereço é resolvido, mas a chamada vai ao Accounts em memória
+            [$"services:{AccountAccessExtensions.AccountsResource}:http:0"] = "http://accounts-api",
         };
 
         foreach (var database in Databases)
@@ -89,6 +101,28 @@ public sealed class WalletFixture : IAsyncLifetime
         _ = Fraud.Server;
         _ = Notifications.Server;
         _ = Gateway.Server;
+    }
+
+    /// <summary>Cliente com o token do operador dos testes.</summary>
+    public HttpClient AsOperator<TEntry>(WebApplicationFactory<TEntry> factory)
+        where TEntry : class =>
+        factory.CreateDefaultClient(new BearerTokenHandler(OperatorTokenAsync));
+
+    /// <summary>Cliente com o token do usuário (precisa existir no Keycloak).</summary>
+    public HttpClient As<TEntry>(WebApplicationFactory<TEntry> factory, string username)
+        where TEntry : class =>
+        factory.CreateDefaultClient(new BearerTokenHandler(() => Keycloak.TokenForAsync(username)));
+
+    private async Task<string> OperatorTokenAsync()
+    {
+        // Tokens valem 30 minutos no realm; renovar a cada minuto evita um password grant por requisição
+        if (_operatorToken is not { } cached || DateTimeOffset.UtcNow - cached.IssuedAt > TimeSpan.FromMinutes(1))
+        {
+            cached = (await Keycloak.TokenForAsync(OperatorUsername), DateTimeOffset.UtcNow);
+            _operatorToken = cached;
+        }
+
+        return cached.Token;
     }
 
     public async ValueTask DisposeAsync()
@@ -118,6 +152,11 @@ public sealed class WalletFixture : IAsyncLifetime
             {
                 builder.UseSetting(key, value);
             }
+
+            // Sem rede entre os hosts em memória: a consulta de posse vai direto ao TestServer do Accounts
+            builder.ConfigureTestServices(services => services
+                .AddHttpClient(AccountAccessExtensions.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => Accounts.Server.CreateHandler()));
         });
 
         _factories.Add(factory);

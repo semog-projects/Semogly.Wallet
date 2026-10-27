@@ -31,7 +31,7 @@ public sealed class ApiContractTests(WalletFixture fixture)
     [Fact]
     public async Task UnreadableBody_ShouldReturnBadRequestInsteadOfServerError()
     {
-        var client = fixture.Ledger.CreateClient();
+        var client = fixture.AsOperator(fixture.Ledger);
 
         // Número enviado como string: o contrato é estrito (JsonNumberHandling.Strict)
         var response = await client.PostAsync(

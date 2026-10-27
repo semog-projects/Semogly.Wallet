@@ -18,7 +18,7 @@ abstract class TransfersClient {
 
   /// Solicita uma transferência entre contas.
   ///
-  /// Processamento assíncrono via saga: retorna 202 e o status deve ser acompanhado em GET /transfers/{id}. Repetir a requisição com a mesma Idempotency-Key devolve a transferência original.
+  /// Processamento assíncrono via saga: retorna 202 e o status deve ser acompanhado em GET /transfers/{id}. Repetir a requisição com a mesma Idempotency-Key devolve a transferência original. A conta de origem precisa ser do usuário autenticado (ou ele ser operador).
   @POST('/transfers')
   Future<TransferResponse> createTransfer({
     @Body() required CreateTransferRequest body,
@@ -27,7 +27,7 @@ abstract class TransfersClient {
 
   /// Lista transferências com filtros (backoffice).
   ///
-  /// No Gateway, exige o papel operator. A conta filtra tanto pela origem quanto pelo destino.
+  /// Exige o papel operator. A conta filtra tanto pela origem quanto pelo destino.
   @GET('/transfers')
   Future<PagedResponseOfTransferResponse> listTransfers({
     @Query('page') int? page = 1,
@@ -38,7 +38,9 @@ abstract class TransfersClient {
     @Query('to') DateTime? to,
   });
 
-  /// Consulta o status de uma transferência
+  /// Consulta o status de uma transferência.
+  ///
+  /// Titular da conta de origem ou de destino, ou operador.
   @GET('/transfers/{id}')
   Future<TransferResponse> getTransfer({
     @Path('id') required String id,

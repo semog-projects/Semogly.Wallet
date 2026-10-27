@@ -13,11 +13,14 @@ export interface paths {
         };
         /**
          * Busca contas por nome, e-mail ou CPF (backoffice)
-         * @description No Gateway, exige o papel operator. Sem termo, lista as contas mais recentes.
+         * @description Exige o papel operator. Sem termo, lista as contas mais recentes.
          */
         get: operations["SearchAccounts"];
         put?: never;
-        /** Abre uma nova conta na carteira */
+        /**
+         * Abre uma nova conta na carteira
+         * @description Cliente abre conta apenas no próprio e-mail (o do token); operador, para qualquer titular.
+         */
         post: operations["CreateAccount"];
         delete?: never;
         options?: never;
@@ -34,7 +37,7 @@ export interface paths {
         };
         /**
          * Encontra a conta de destino pelo e-mail do titular (chave de transferência)
-         * @description Exige JWT. Retorna apenas o id e o nome mascarado, para o pagador confirmar o destinatário.
+         * @description Retorna apenas o id e o nome mascarado, para o pagador confirmar o destinatário.
          */
         get: operations["LookupAccount"];
         put?: never;
@@ -52,10 +55,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Contas do titular autenticado (e-mail do token)
-         * @description Exige JWT: o próprio serviço valida o token repassado pelo Gateway.
-         */
+        /** Contas do titular autenticado (e-mail do token) */
         get: operations["GetMyAccounts"];
         put?: never;
         post?: never;
@@ -72,7 +72,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Consulta os dados de uma conta */
+        /**
+         * Consulta os dados de uma conta
+         * @description Titular ou operador. Os demais serviços consultam esta rota para verificar a posse da conta.
+         */
         get: operations["GetAccount"];
         put?: never;
         post?: never;
@@ -89,7 +92,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Consulta o saldo de uma conta */
+        /**
+         * Consulta o saldo de uma conta
+         * @description Titular ou operador.
+         */
         get: operations["GetBalance"];
         put?: never;
         post?: never;
@@ -204,6 +210,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     CreateAccount: {
@@ -235,6 +250,24 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
             /** @description Conflict */
@@ -364,6 +397,24 @@ export interface operations {
                     "application/json": components["schemas"]["AccountResponse"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
             /** @description Not Found */
             404: {
                 headers: {
@@ -393,6 +444,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BalanceResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
             /** @description Not Found */

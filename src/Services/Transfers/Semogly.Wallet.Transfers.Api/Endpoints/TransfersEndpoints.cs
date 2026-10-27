@@ -23,30 +23,39 @@ internal static class TransfersEndpoints
 
     public static IEndpointRouteBuilder MapTransfersEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/transfers").WithTags("Transfers");
+        var group = app.MapGroup("/transfers")
+            .WithTags("Transfers")
+            .RequireAuthorization()
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/", CreateTransferAsync)
             .WithName("CreateTransfer")
             .WithSummary("Solicita uma transferência entre contas")
             .WithDescription(
                 "Processamento assíncrono via saga: retorna 202 e o status deve ser acompanhado em GET /transfers/{id}. " +
-                "Repetir a requisição com a mesma Idempotency-Key devolve a transferência original.")
+                "Repetir a requisição com a mesma Idempotency-Key devolve a transferência original. " +
+                "A conta de origem precisa ser do usuário autenticado (ou ele ser operador).")
             .Produces<TransferResponse>(StatusCodes.Status202Accepted)
             .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         group.MapGet("/", ListTransfersAsync)
             .WithName("ListTransfers")
             .WithSummary("Lista transferências com filtros (backoffice)")
-            .WithDescription("No Gateway, exige o papel operator. A conta filtra tanto pela origem quanto pelo destino.")
+            .WithDescription("Exige o papel operator. A conta filtra tanto pela origem quanto pelo destino.")
+            .RequireAuthorization(JwtValidationExtensions.OperatorPolicy)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces<PagedResponse<TransferResponse>>()
             .ProducesValidationProblem();
 
         group.MapGet("/{id:guid}", GetTransferAsync)
             .WithName(GetTransferRoute)
             .WithSummary("Consulta o status de uma transferência")
+            .WithDescription("Titular da conta de origem ou de destino, ou operador.")
             .Produces<TransferResponse>()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
@@ -55,9 +64,16 @@ internal static class TransfersEndpoints
     private static async Task<IResult> CreateTransferAsync(
         CreateTransferRequest request,
         [FromHeader(Name = IdempotencyKeyHeader)] string? idempotencyKey,
+        HttpContext context,
+        IAccountAccess access,
         ICommandHandler<CreateTransferCommand, TransferResponse> handler,
         CancellationToken cancellationToken)
     {
+        if (!await access.CanAccessAsync(context.User, context.BearerToken(), request.SourceAccountId, cancellationToken))
+        {
+            return AccountAccessExtensions.Forbidden(request.SourceAccountId);
+        }
+
         var result = await handler.HandleAsync(
             new CreateTransferCommand(
                 request.SourceAccountId,
@@ -92,11 +108,29 @@ internal static class TransfersEndpoints
 
     private static async Task<IResult> GetTransferAsync(
         Guid id,
+        HttpContext context,
+        IAccountAccess access,
         IQueryHandler<GetTransferQuery, TransferResponse> handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(new GetTransferQuery(id), cancellationToken);
 
-        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
+        if (!result.IsSuccess)
+        {
+            return result.Error.ToProblem();
+        }
+
+        // Pagador e recebedor acompanham a mesma transferência
+        var transfer = result.Value;
+        var canAccess =
+            await access.CanAccessAsync(context.User, context.BearerToken(), transfer.SourceAccountId, cancellationToken)
+            || await access.CanAccessAsync(context.User, context.BearerToken(), transfer.DestinationAccountId, cancellationToken);
+
+        return canAccess
+            ? TypedResults.Ok(transfer)
+            : TypedResults.Problem(
+                title: "Transfer.Forbidden",
+                detail: "A transferência não envolve contas do usuário autenticado.",
+                statusCode: StatusCodes.Status403Forbidden);
     }
 }

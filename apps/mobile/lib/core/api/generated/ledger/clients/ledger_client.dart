@@ -18,18 +18,22 @@ abstract class LedgerClient {
 
   /// Visão do livro-razão: saldos de CashIn, Clearing e clientes (backoffice).
   ///
-  /// No Gateway, exige o papel operator. Total diferente de zero indica inconsistência contábil.
+  /// Exige o papel operator. Total diferente de zero indica inconsistência contábil.
   @GET('/ledger/book')
   Future<LedgerBookResponse> getBook();
 
-  /// Registra um depósito (entrada de dinheiro externo) na conta
+  /// Registra um depósito (entrada de dinheiro externo) na conta.
+  ///
+  /// Exige o papel operator.
   @POST('/ledger/accounts/{accountId}/deposits')
   Future<DepositResponse> deposit({
     @Path('accountId') required String accountId,
     @Body() required DepositRequest body,
   });
 
-  /// Consulta o extrato da conta, do lançamento mais recente para o mais antigo
+  /// Consulta o extrato da conta, do lançamento mais recente para o mais antigo.
+  ///
+  /// Titular ou operador.
   @GET('/ledger/accounts/{accountId}/statement')
   Future<StatementResponse> getStatement({
     @Path('accountId') required String accountId,

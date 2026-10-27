@@ -6,3 +6,4 @@
 export 'clients/fraud_client.dart';
 // Data classes
 export 'models/daily_usage_response.dart';
+export 'models/problem_details.dart';

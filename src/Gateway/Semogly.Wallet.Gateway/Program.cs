@@ -23,6 +23,9 @@ builder.AddBffDataProtection();
 builder.AddBffSessionStore();
 builder.AddRealtime();
 
+// Posse das contas assinadas no hub, consultada no Accounts
+builder.AddAccountAccess();
+
 // O front (proxy do Vite em dev, ingress em produção) informa a origem pública: o redirect_uri do login OIDC
 // precisa apontar para ela. Por padrão só proxies locais (loopback) são confiáveis.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>

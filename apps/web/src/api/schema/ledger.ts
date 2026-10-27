@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * Visão do livro-razão: saldos de CashIn, Clearing e clientes (backoffice)
-         * @description No Gateway, exige o papel operator. Total diferente de zero indica inconsistência contábil.
+         * @description Exige o papel operator. Total diferente de zero indica inconsistência contábil.
          */
         get: operations["GetBook"];
         put?: never;
@@ -33,7 +33,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Registra um depósito (entrada de dinheiro externo) na conta */
+        /**
+         * Registra um depósito (entrada de dinheiro externo) na conta
+         * @description Exige o papel operator.
+         */
         post: operations["Deposit"];
         delete?: never;
         options?: never;
@@ -48,7 +51,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Consulta o extrato da conta, do lançamento mais recente para o mais antigo */
+        /**
+         * Consulta o extrato da conta, do lançamento mais recente para o mais antigo
+         * @description Titular ou operador.
+         */
         get: operations["GetStatement"];
         put?: never;
         post?: never;
@@ -164,6 +170,24 @@ export interface operations {
                     "application/json": components["schemas"]["LedgerBookResponse"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     Deposit: {
@@ -197,6 +221,24 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
             /** @description Not Found */
@@ -249,6 +291,24 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
             /** @description Not Found */

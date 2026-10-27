@@ -13,7 +13,9 @@ part 'notifications_client.g.dart';
 abstract class NotificationsClient {
   factory NotificationsClient(Dio dio, {String? baseUrl}) = _NotificationsClient;
 
-  /// Lista as notificações enviadas para a conta, da mais recente para a mais antiga
+  /// Lista as notificações enviadas para a conta, da mais recente para a mais antiga.
+  ///
+  /// Titular ou operador.
   @GET('/notifications/accounts/{accountId}')
   Future<List<NotificationResponse>> getNotifications({
     @Path('accountId') required String accountId,

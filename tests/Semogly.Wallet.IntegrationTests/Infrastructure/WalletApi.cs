@@ -9,7 +9,7 @@ using Semogly.Wallet.Transfers.Domain.Transfers;
 
 namespace Semogly.Wallet.IntegrationTests.Infrastructure;
 
-/// <summary>Cliente HTTP dos serviços hospedados pelo <see cref="WalletFixture"/>.</summary>
+/// <summary>Cliente HTTP dos serviços hospedados pelo <see cref="WalletFixture"/>, autenticado como operador.</summary>
 internal sealed class WalletApi(WalletFixture fixture)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
@@ -17,19 +17,22 @@ internal sealed class WalletApi(WalletFixture fixture)
         Converters = { new JsonStringEnumConverter() },
     };
 
-    private readonly HttpClient _accounts = fixture.Accounts.CreateClient();
-    private readonly HttpClient _transfers = fixture.Transfers.CreateClient();
-    private readonly HttpClient _ledger = fixture.Ledger.CreateClient();
-    private readonly HttpClient _notifications = fixture.Notifications.CreateClient();
+    private readonly HttpClient _accounts = fixture.AsOperator(fixture.Accounts);
+    private readonly HttpClient _transfers = fixture.AsOperator(fixture.Transfers);
+    private readonly HttpClient _ledger = fixture.AsOperator(fixture.Ledger);
+    private readonly HttpClient _notifications = fixture.AsOperator(fixture.Notifications);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    /// <summary>E-mail do titular quando a conta é aberta sem e-mail explícito.</summary>
+    public static string EmailFor(string name) => $"{name.ToLowerInvariant().Replace(' ', '.')}@email.com";
+
     /// <summary>Abre a conta e espera o Ledger registrá-la (evento AccountCreated).</summary>
-    public async Task<Guid> OpenAccountAsync(string name, decimal initialDeposit = 0m)
+    public async Task<Guid> OpenAccountAsync(string name, decimal initialDeposit = 0m, string? email = null)
     {
         var response = await _accounts.PostAsJsonAsync(
             "/accounts",
-            new { ownerName = name, document = RandomCpf(), email = $"{name.ToLowerInvariant().Replace(' ', '.')}@email.com" },
+            new { ownerName = name, document = RandomCpf(), email = email ?? EmailFor(name) },
             Ct);
         response.EnsureSuccessStatusCode();
         var account = (await response.Content.ReadFromJsonAsync<AccountResponse>(Json, Ct))!;

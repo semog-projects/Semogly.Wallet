@@ -13,11 +13,17 @@ internal static class LedgerEndpoints
 {
     public static IEndpointRouteBuilder MapLedgerEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/ledger/accounts/{accountId:guid}").WithTags("Ledger");
+        var group = app.MapGroup("/ledger/accounts/{accountId:guid}")
+            .WithTags("Ledger")
+            .RequireAuthorization()
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/deposits", DepositAsync)
             .WithName("Deposit")
             .WithSummary("Registra um depósito (entrada de dinheiro externo) na conta")
+            .WithDescription("Exige o papel operator.")
+            .RequireAuthorization(JwtValidationExtensions.OperatorPolicy)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces<DepositResponse>()
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -26,6 +32,8 @@ internal static class LedgerEndpoints
         group.MapGet("/statement", GetStatementAsync)
             .WithName("GetStatement")
             .WithSummary("Consulta o extrato da conta, do lançamento mais recente para o mais antigo")
+            .WithDescription("Titular ou operador.")
+            .RequireAccountAccess()
             .Produces<StatementResponse>()
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -34,7 +42,10 @@ internal static class LedgerEndpoints
             .WithTags("Ledger")
             .WithName("GetBook")
             .WithSummary("Visão do livro-razão: saldos de CashIn, Clearing e clientes (backoffice)")
-            .WithDescription("No Gateway, exige o papel operator. Total diferente de zero indica inconsistência contábil.")
+            .WithDescription("Exige o papel operator. Total diferente de zero indica inconsistência contábil.")
+            .RequireAuthorization(JwtValidationExtensions.OperatorPolicy)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces<LedgerBookResponse>();
 
         return app;

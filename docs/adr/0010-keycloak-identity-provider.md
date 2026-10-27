@@ -20,8 +20,8 @@ oferece os fluxos que o web e o app precisam (OIDC com redirecionamento e PKCE).
   Android não confia no certificado de desenvolvimento do .NET (o mesmo motivo do Gateway em HTTP para o app);
   o emulador alcança a porta com `adb reverse tcp:8080 tcp:8080`. No início (#39) era HTTPS na 8443.
 - **Validação:** `AddWalletJwtBearer` no ServiceDefaults usa `AddKeycloakJwtBearer` (metadados e JWKS pelo
-  service discovery), valida a audiência e mapeia `preferred_username` e `role`. O Gateway e o Accounts usam a
-  mesma configuração; não há mais chave compartilhada.
+  service discovery), valida a audiência e mapeia `preferred_username` e `role`. O Gateway e todos os serviços
+  usam a mesma configuração ([ADR 0011](0011-posse-da-conta.md)); não há mais chave compartilhada.
 - **Login do web (BFF):** o Gateway é o cliente OIDC confidencial (`wallet-gateway`):
   - `GET /bff/login` faz Authorization Code + PKCE com PAR (os parâmetros vão ao Keycloak pelo canal de
     servidor) e `response_mode=query`; o retorno (`/bff/signin-oidc`) cria a sessão e volta a um caminho local.

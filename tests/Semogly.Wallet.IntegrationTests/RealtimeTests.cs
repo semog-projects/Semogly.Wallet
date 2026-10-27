@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using Semogly.Wallet.Gateway.Realtime;
 using Semogly.Wallet.IntegrationTests.Infrastructure;
@@ -22,7 +23,7 @@ public sealed class RealtimeTests(WalletFixture fixture)
     public async Task AccountSubscriber_ShouldReceivePendingAndCompleted()
     {
         var ana = await _api.OpenAccountAsync("Ana Tempo Real", initialDeposit: 100m);
-        var bruno = await _api.OpenAccountAsync("Bruno Tempo Real");
+        var bruno = await _api.OpenAccountAsync("Bruno Tempo Real", email: "bruno.realtime@email.com");
 
         await using var client = await ConnectAsync("bruno.realtime@email.com", "customer");
         await client.Connection.InvokeAsync(nameof(TransfersHub.SubscribeToAccount), bruno, Ct);
@@ -35,6 +36,18 @@ public sealed class RealtimeTests(WalletFixture fixture)
         var completed = await client.NextAsync(u => u.TransferId == transfer!.Id);
         Assert.Equal("Completed", completed.Status);
         Assert.Equal(25m, completed.Amount);
+    }
+
+    [Fact]
+    public async Task SubscribeToAccount_OfAnotherCustomer_ShouldBeRejected()
+    {
+        var ana = await _api.OpenAccountAsync("Ana Alheia Tempo Real");
+
+        await using var intruder = await ConnectAsync("intruso.realtime@email.com", "customer");
+
+        var error = await Assert.ThrowsAsync<HubException>(
+            () => intruder.Connection.InvokeAsync(nameof(TransfersHub.SubscribeToAccount), ana, Ct));
+        Assert.Contains("não pertence", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

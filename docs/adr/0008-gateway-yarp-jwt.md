@@ -28,6 +28,6 @@ obrigar o cliente a conhecer cada endereço.
 ## Consequências
 
 - **Positivas:** segurança, limites e documentação concentrados em um ponto, e os serviços ficam focados no negócio.
-- **Negativas:**
-  - Só o Accounts valida o JWT por conta própria; os demais serviços ainda confiam no Gateway.
-  - A posse da conta (o usuário só acessar as próprias contas) ainda não é verificada.
+- **Negativas** (resolvidas pela [ADR 0011](0011-posse-da-conta.md)):
+  - Só o Accounts validava o JWT por conta própria; os demais serviços confiavam no Gateway.
+  - A posse da conta (o usuário só acessar as próprias contas) não era verificada.

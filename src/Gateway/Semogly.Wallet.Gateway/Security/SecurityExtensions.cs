@@ -9,7 +9,7 @@ internal static class SecurityExtensions
     /// <summary>Escolhe o esquema por requisição: Bearer (app mobile, Scalar) ou cookie (web via BFF).</summary>
     public const string BearerOrCookieScheme = "bearer-or-cookie";
 
-    private const string AccessTokenQueryParameter = "access_token";
+    public const string AccessTokenQueryParameter = "access_token";
 
     public static IHostApplicationBuilder AddGatewaySecurity(this IHostApplicationBuilder builder)
     {
