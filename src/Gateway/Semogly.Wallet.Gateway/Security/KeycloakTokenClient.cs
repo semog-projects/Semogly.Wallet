@@ -15,30 +15,75 @@ public sealed class KeycloakClientOptions
 }
 
 /// <summary>
-/// Obtém tokens do Keycloak com usuário e senha (password grant), apenas em desenvolvimento: mantém o Scalar,
-/// o curl e os logins de desenvolvimento funcionando. Os clientes finais usam Authorization Code + PKCE.
+/// Chamadas de servidor do Gateway ao Keycloak: renovação e encerramento da sessão do BFF e, apenas em
+/// desenvolvimento, o password grant usado pelo Scalar e pelo curl.
 /// </summary>
 internal sealed class KeycloakTokenClient(HttpClient http, KeycloakClientOptions options, TimeProvider clock)
 {
     public const string HttpClientName = "keycloak";
 
-    public sealed record IssuedToken(string AccessToken, DateTimeOffset ExpiresAt, ClaimsIdentity Identity);
+    private const string RealmPath = $"/realms/{JwtValidationExtensions.Realm}/protocol/openid-connect";
+
+    public sealed record IssuedToken(
+        string AccessToken,
+        string? RefreshToken,
+        DateTimeOffset ExpiresAt,
+        ClaimsIdentity Identity);
 
     /// <returns>O token, ou null se usuário ou senha estiverem incorretos.</returns>
-    public async Task<IssuedToken?> PasswordGrantAsync(string username, string password, CancellationToken cancellationToken)
-    {
-        using var response = await http.PostAsync(
-            $"/realms/{JwtValidationExtensions.Realm}/protocol/openid-connect/token",
-            new FormUrlEncodedContent(new Dictionary<string, string>
+    public Task<IssuedToken?> PasswordGrantAsync(string username, string password, CancellationToken cancellationToken) =>
+        RequestTokenAsync(
+            new Dictionary<string, string>
             {
                 ["grant_type"] = "password",
-                ["client_id"] = options.ClientId,
-                ["client_secret"] = options.ClientSecret,
                 ["username"] = username,
                 ["password"] = password,
                 ["scope"] = "openid",
-            }),
+            },
             cancellationToken);
+
+    /// <returns>Os novos tokens, ou null se a sessão no Keycloak expirou ou foi encerrada.</returns>
+    public Task<IssuedToken?> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
+        RequestTokenAsync(
+            new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["refresh_token"] = refreshToken,
+            },
+            cancellationToken);
+
+    /// <summary>Encerra a sessão do usuário no Keycloak (logout pelo canal de servidor).</summary>
+    public async Task LogoutAsync(string refreshToken, CancellationToken cancellationToken)
+    {
+        using var response = await http.PostAsync(
+            $"{RealmPath}/logout",
+            new FormUrlEncodedContent(WithClientCredentials(new Dictionary<string, string>
+            {
+                ["refresh_token"] = refreshToken,
+            })),
+            cancellationToken);
+
+        // Sessão já expirada ou encerrada no Keycloak: nada a fazer
+        if (response.StatusCode is not HttpStatusCode.BadRequest)
+        {
+            response.EnsureSuccessStatusCode();
+        }
+    }
+
+    /// <summary>
+    /// Identidade a partir do access token, o mesmo que os serviços validam: nome em preferred_username
+    /// e papéis na claim role. O token acabou de vir do Keycloak pelo canal de servidor.
+    /// </summary>
+    public static ClaimsIdentity IdentityFrom(string accessToken) => new(
+        new JsonWebToken(accessToken).Claims,
+        "keycloak",
+        JwtValidationExtensions.NameClaim,
+        JwtValidationExtensions.RoleClaim);
+
+    private async Task<IssuedToken?> RequestTokenAsync(Dictionary<string, string> form, CancellationToken cancellationToken)
+    {
+        using var response = await http.PostAsync(
+            $"{RealmPath}/token", new FormUrlEncodedContent(WithClientCredentials(form)), cancellationToken);
 
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.BadRequest)
         {
@@ -48,18 +93,22 @@ internal sealed class KeycloakTokenClient(HttpClient http, KeycloakClientOptions
         response.EnsureSuccessStatusCode();
         var token = (await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken))!;
 
-        // Claims só para montar a sessão do BFF: o token acabou de vir do Keycloak pelo canal de servidor
-        var jwt = new JsonWebToken(token.AccessToken);
-        var identity = new ClaimsIdentity(
-            jwt.Claims,
-            "keycloak",
-            JwtValidationExtensions.NameClaim,
-            JwtValidationExtensions.RoleClaim);
+        return new IssuedToken(
+            token.AccessToken,
+            token.RefreshToken,
+            clock.GetUtcNow().AddSeconds(token.ExpiresIn),
+            IdentityFrom(token.AccessToken));
+    }
 
-        return new IssuedToken(token.AccessToken, clock.GetUtcNow().AddSeconds(token.ExpiresIn), identity);
+    private Dictionary<string, string> WithClientCredentials(Dictionary<string, string> form)
+    {
+        form["client_id"] = options.ClientId;
+        form["client_secret"] = options.ClientSecret;
+        return form;
     }
 
     private sealed record TokenResponse(
         [property: JsonPropertyName("access_token")] string AccessToken,
+        [property: JsonPropertyName("refresh_token")] string? RefreshToken,
         [property: JsonPropertyName("expires_in")] int ExpiresIn);
 }

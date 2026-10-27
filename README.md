@@ -163,7 +163,7 @@ o lançamento, as mensagens publicadas e a deduplicação são confirmados junto
 | Persistência | PostgreSQL 18 + EF Core 10 · Marten 9 (event store e projeções) |
 | Cache e contadores | Redis 8 · HybridCache · scripts Lua |
 | Identidade | Keycloak 26 (OIDC, realm importado pelo Aspire) · JWT RS256 validado pelo Gateway e pelos serviços |
-| Borda | YARP · JWT Bearer · BFF com cookie · Rate Limiting · SignalR · Scalar (OpenAPI agregado) |
+| Borda | YARP · JWT Bearer · BFF (cliente OIDC confidencial, sessão no Redis) · Rate Limiting · SignalR · Scalar (OpenAPI agregado) |
 | App do cliente | Flutter 3 · Riverpod · go_router · dio · clientes Dart gerados do OpenAPI (swagger_parser) · token no Keychain/Keystore |
 | Backoffice web | React 19 · TypeScript · Vite · TanStack Query · React Router · Tailwind + shadcn/ui · cliente gerado do OpenAPI (openapi-fetch) · Vitest |
 | Testes | xUnit v3 · MassTransit Test Harness · Testcontainers · WebApplicationFactory |
@@ -188,7 +188,7 @@ aplicados automaticamente em Development.
 | O quê | Onde |
 |---|---|
 | Dashboard do Aspire (logs, traces, métricas) | URL exibida no terminal (padrão `https://localhost:17110`) |
-| **Backoffice web** (React) | Link do recurso `backoffice` no dashboard. Login com `backoffice@semogly.dev` / `Senha@123` |
+| **Backoffice web** (React) | `http://localhost:5173`. "Entrar com Keycloak" com `backoffice@semogly.dev` / `Senha@123` |
 | **Gateway + Scalar com toda a API** | `https://localhost:7100/scalar` |
 | **Keycloak** (console de administração) | `https://localhost:8443` · usuário `admin`, senha no parâmetro `keycloak-password` do dashboard |
 | RabbitMQ e pgAdmin | Links no dashboard do Aspire |
@@ -258,7 +258,8 @@ informe-o na autenticação Bearer.
 | Método | Rota | Descrição |
 |---|---|---|
 | `POST` | `/auth/token` | Troca usuário e senha por um token do Keycloak (só em Development: app mobile, Scalar) |
-| `POST` | `/bff/login` · `/bff/logout` | Sessão do web em cookie `HttpOnly` (BFF): os tokens ficam no Redis, do lado do Gateway. Exigem o header `X-CSRF: 1` |
+| `GET` | `/bff/login?returnUrl=` | Login OIDC do web: redireciona para o Keycloak (Authorization Code + PKCE + PAR) e cria a sessão em cookie `HttpOnly`; os tokens ficam no Redis |
+| `POST` | `/bff/logout` | Encerra a sessão do web e a do Keycloak (logout federado). Exige o header `X-CSRF: 1` |
 | `GET` | `/bff/user` | Usuário e papéis da sessão atual |
 | `POST` | `/api/accounts` | Abre uma conta |
 | `GET` | `/api/accounts/lookup?email=` | Destinatário pela chave (e-mail): id e nome mascarado ("Joao D."), para confirmar antes de transferir |
@@ -354,7 +355,7 @@ docs/adr/                               # decisões de arquitetura
 ## Próximos passos
 
 - **Identidade e autorização:**
-  - Login OIDC com redirecionamento para o Keycloak no web (BFF) e no app (PKCE), no lugar do password grant.
+  - Login OIDC com PKCE no app, no lugar do password grant.
   - Verificar se a conta da rota pertence ao usuário do token.
 - **Defesa em profundidade:** todos os serviços validarem o JWT, além do Gateway (hoje só o Accounts).
 - **Ledger:** snapshots dos agregados, para evitar ler o stream inteiro a cada operação.

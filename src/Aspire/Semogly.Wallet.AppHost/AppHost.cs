@@ -85,6 +85,8 @@ var gateway = builder.AddProject<Projects.Semogly_Wallet_Gateway>(ResourceNames.
 // então navegador e Gateway ficam na mesma origem e o cookie do BFF funciona sem CORS
 builder.AddViteApp(ResourceNames.Backoffice, "../../../apps/web")
     .WithNpm(install: true)
+    // Porta fixa: o retorno do login OIDC (redirect URI) precisa estar cadastrado no Keycloak
+    .WithEndpoint("http", endpoint => endpoint.Port = 5173)
     .WithReference(gateway).WaitFor(gateway)
     .WithExternalHttpEndpoints();
 

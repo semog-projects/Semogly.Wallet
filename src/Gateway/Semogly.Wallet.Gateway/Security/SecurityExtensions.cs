@@ -43,7 +43,8 @@ internal static class SecurityExtensions
                         return Task.CompletedTask;
                     },
                 })
-            .AddBffCookie();
+            .AddBffCookie()
+            .AddBffOpenIdConnect(builder.Environment, keycloak);
 
         builder.Services.AddAuthorizationBuilder()
             .AddPolicy(GatewayPolicies.Customer, policy => policy.RequireAuthenticatedUser())

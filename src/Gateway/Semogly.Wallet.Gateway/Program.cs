@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Scalar.AspNetCore;
 using Semogly.Wallet.Gateway.Bff;
 using Semogly.Wallet.Gateway.RateLimiting;
@@ -22,8 +23,14 @@ builder.AddBffDataProtection();
 builder.AddBffSessionStore();
 builder.AddRealtime();
 
+// O front (proxy do Vite em dev, ingress em produção) informa a origem pública: o redirect_uri do login OIDC
+// precisa apontar para ela. Por padrão só proxies locais (loopback) são confiáveis.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedHost | ForwardedHeaders.XForwardedProto);
+
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
@@ -34,7 +41,7 @@ app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapDefaultEndpoints();
-app.MapBffEndpoints(allowDevelopmentLogin: app.Environment.IsDevelopment());
+app.MapBffEndpoints();
 
 if (app.Environment.IsDevelopment())
 {

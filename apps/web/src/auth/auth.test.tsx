@@ -1,48 +1,44 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { redirectTo } from '@/lib/navigation'
 import { mockFetch, renderApp } from '@/test/render'
+
+// jsdom não navega: o redirecionamento para o Keycloak é verificado pela chamada
+vi.mock('@/lib/navigation', () => ({ redirectTo: vi.fn() }))
 
 const book = { cashIn: -500, clearing: 0, customerBalances: 500, customerAccounts: 2, total: 0, isBalanced: true }
 
 describe('autenticação do backoffice', () => {
+  beforeEach(() => vi.mocked(redirectTo).mockClear())
+
   it('sem sessão, redireciona para o login', async () => {
     mockFetch([{ path: '/bff/user', status: 401 }])
 
     renderApp('/')
 
-    expect(await screen.findByRole('button', { name: 'Entrar' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Entrar com Keycloak' })).toBeInTheDocument()
   })
 
-  it('senha incorreta mostra a mensagem do Keycloak', async () => {
+  it('entrar leva ao login OIDC do Gateway, voltando para a rota protegida de origem', async () => {
+    mockFetch([{ path: '/bff/user', status: 401 }])
+
+    renderApp('/transfers')
+    await userEvent.click(await screen.findByRole('button', { name: 'Entrar com Keycloak' }))
+
+    expect(redirectTo).toHaveBeenCalledWith('/bff/login?returnUrl=%2Ftransfers')
+  })
+
+  it('com sessão de operador, a tela de login segue para a visão geral', async () => {
     mockFetch([
-      { path: '/bff/user', status: 401 },
-      { method: 'POST', path: '/bff/login', status: 401 },
-    ])
-
-    renderApp('/login')
-    await userEvent.type(await screen.findByLabelText('Senha'), 'errada')
-    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }))
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Usuário ou senha inválidos.')
-  })
-
-  it('login cria a sessão com o header anti-CSRF e abre a visão geral', async () => {
-    const fetchMock = mockFetch([
-      { path: '/bff/user', status: 401 },
-      { method: 'POST', path: '/bff/login', body: { username: 'backoffice', roles: ['operator'] } },
+      { path: '/bff/user', body: { username: 'backoffice@semogly.dev', roles: ['operator'] } },
       { path: '/api/ledger/book', body: book },
     ])
 
     renderApp('/login')
-    await userEvent.type(await screen.findByLabelText('Senha'), 'Senha@123')
-    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }))
 
     expect(await screen.findByText('Livro balanceado')).toBeInTheDocument()
-
-    const [, init] = fetchMock.mock.calls.find(([input]) => String(input) === '/bff/login')!
-    expect(new Headers(init?.headers).get('X-CSRF')).toBe('1')
-    expect(JSON.parse(String(init?.body))).toEqual({ username: 'backoffice@semogly.dev', password: 'Senha@123' })
+    expect(redirectTo).not.toHaveBeenCalled()
   })
 
   it('usuário sem o papel operator vê acesso restrito', async () => {

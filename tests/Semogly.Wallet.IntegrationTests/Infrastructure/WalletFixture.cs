@@ -52,6 +52,9 @@ public sealed class WalletFixture : IAsyncLifetime
     {
         await Task.WhenAll(_postgres.StartAsync(), _rabbitMq.StartAsync(), _redis.StartAsync(), _keycloak.StartAsync());
         Keycloak = new KeycloakTestUsers(new Uri(_keycloak.GetBaseAddress()), KeycloakAdmin, KeycloakAdminPassword);
+
+        // Retorno do login OIDC no Gateway em memória (BffTests usa https://localhost)
+        await Keycloak.AllowGatewayRedirectUriAsync("https://localhost/*");
         await CreateDatabasesAsync();
 
         // Mesmos nomes de connection string que o AppHost injeta

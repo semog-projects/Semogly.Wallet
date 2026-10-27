@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getSession, login, logout, OPERATOR_ROLE, type SessionUser } from '@/api/bff'
+import { getSession, logout, OPERATOR_ROLE, type SessionUser } from '@/api/bff'
 
 const sessionKey = ['session'] as const
 
@@ -14,15 +14,6 @@ export function useSession() {
 
 export function isOperator(user: SessionUser | null | undefined): boolean {
   return user?.roles.includes(OPERATOR_ROLE) ?? false
-}
-
-export function useLogin() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: ({ username, password }: { username: string; password: string }) => login(username, password),
-    onSuccess: (user) => queryClient.setQueryData(sessionKey, user),
-  })
 }
 
 export function useLogout() {

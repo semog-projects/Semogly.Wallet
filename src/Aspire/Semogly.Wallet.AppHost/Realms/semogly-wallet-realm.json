@@ -6,6 +6,15 @@
   "accessTokenLifespan": 1800,
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
+  "browserSecurityHeaders": {
+    "contentSecurityPolicy": "frame-src 'self'; frame-ancestors 'self'; object-src 'none';",
+    "contentSecurityPolicyReportOnly": "",
+    "xContentTypeOptions": "nosniff",
+    "xFrameOptions": "SAMEORIGIN",
+    "xRobotsTag": "none",
+    "referrerPolicy": "no-referrer",
+    "strictTransportSecurity": "max-age=0"
+  },
   "roles": {
     "realm": [
       { "name": "customer", "description": "Titular de conta (app do cliente)" },
@@ -16,13 +25,13 @@
     {
       "clientId": "wallet-gateway",
       "name": "Semogly Wallet Gateway (BFF)",
-      "description": "Cliente confidencial do Gateway: fluxo de login do web (BFF) e, em desenvolvimento, password grant",
+      "description": "Cliente confidencial do Gateway: login OIDC do web (BFF) e, em desenvolvimento, password grant",
       "enabled": true,
       "publicClient": false,
       "secret": "dev-gateway-secret-troque-em-producao",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "redirectUris": ["https://localhost:7100/*", "http://localhost:5100/*"],
+      "redirectUris": ["http://localhost:5173/*", "https://localhost:7100/*", "http://localhost:5100/*"],
       "webOrigins": ["+"],
       "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "+" },
       "protocolMappers": [
