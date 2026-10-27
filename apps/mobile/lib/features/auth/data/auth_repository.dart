@@ -12,7 +12,7 @@ abstract interface class AuthRepository {
   /// Sessão salva no aparelho, se o token ainda for válido.
   Future<Session?> restore();
 
-  Future<Session> signIn(String username);
+  Future<Session> signIn(String username, String password);
 
   Future<void> signOut();
 }
@@ -37,14 +37,17 @@ final class GatewayAuthRepository implements AuthRepository {
       return null;
     }
 
-    return Session(username: claims.subject);
+    return Session(username: claims.username);
   }
 
-  /// Emissor de desenvolvimento do Gateway. Em produção: fluxo OAuth2 Authorization Code + PKCE
-  /// com o Identity Provider (ex.: flutter_appauth).
+  /// Desenvolvimento: o Gateway obtém o token do Keycloak com usuário e senha. O fluxo definitivo,
+  /// Authorization Code + PKCE direto com o Keycloak (flutter_appauth), chega na issue #41.
   @override
-  Future<Session> signIn(String username) async {
-    final response = await _dio.post<Map<String, dynamic>>('/auth/token', data: {'username': username});
+  Future<Session> signIn(String username, String password) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/auth/token',
+      data: {'username': username, 'password': password},
+    );
     final token = response.data?['accessToken'] as String?;
     final claims = token == null ? null : JwtClaims.tryParse(token);
 
@@ -53,7 +56,7 @@ final class GatewayAuthRepository implements AuthRepository {
     }
 
     await _storage.write(token);
-    return Session(username: claims.subject);
+    return Session(username: claims.username);
   }
 
   @override

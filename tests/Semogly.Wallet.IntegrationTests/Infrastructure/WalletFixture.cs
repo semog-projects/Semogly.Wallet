@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Npgsql;
+using Testcontainers.Keycloak;
 using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
 using Testcontainers.Redis;
@@ -25,7 +26,15 @@ public sealed class WalletFixture : IAsyncLifetime
     private readonly RabbitMqContainer _rabbitMq = new RabbitMqBuilder("rabbitmq:4.3-management").Build();
     private readonly RedisContainer _redis = new RedisBuilder("redis:8.6").Build();
 
-    private const string GatewaySigningKey = "chave-de-teste-do-gateway-com-mais-de-32-caracteres";
+    // Mesmo realm versionado que o AppHost importa
+    private readonly KeycloakContainer _keycloak = new KeycloakBuilder("quay.io/keycloak/keycloak:26.6")
+        .WithUsername(KeycloakAdmin)
+        .WithPassword(KeycloakAdminPassword)
+        .WithRealm(Path.Combine(AppContext.BaseDirectory, "Realms", "semogly-wallet-realm.json"))
+        .Build();
+
+    private const string KeycloakAdmin = "admin";
+    private const string KeycloakAdminPassword = "admin";
 
     private readonly List<IAsyncDisposable> _factories = [];
 
@@ -36,9 +45,13 @@ public sealed class WalletFixture : IAsyncLifetime
     public WebApplicationFactory<NotificationsApiMarker> Notifications { get; private set; } = null!;
     public WebApplicationFactory<GatewayMarker> Gateway { get; private set; } = null!;
 
+    /// <summary>Usuários e tokens reais do Keycloak.</summary>
+    public KeycloakTestUsers Keycloak { get; private set; } = null!;
+
     public async ValueTask InitializeAsync()
     {
-        await Task.WhenAll(_postgres.StartAsync(), _rabbitMq.StartAsync(), _redis.StartAsync());
+        await Task.WhenAll(_postgres.StartAsync(), _rabbitMq.StartAsync(), _redis.StartAsync(), _keycloak.StartAsync());
+        Keycloak = new KeycloakTestUsers(new Uri(_keycloak.GetBaseAddress()), KeycloakAdmin, KeycloakAdminPassword);
         await CreateDatabasesAsync();
 
         // Mesmos nomes de connection string que o AppHost injeta
@@ -47,8 +60,8 @@ public sealed class WalletFixture : IAsyncLifetime
             ["ConnectionStrings:rabbitmq"] = _rabbitMq.GetConnectionString(),
             ["ConnectionStrings:redis"] = _redis.GetConnectionString(),
 
-            // Mesma chave no Gateway (emite) e nos serviços que validam o token
-            ["Jwt:SigningKey"] = GatewaySigningKey,
+            // Endereço do Keycloak para o service discovery (validação de tokens e password grant do Gateway)
+            ["services:keycloak:http:0"] = _keycloak.GetBaseAddress().TrimEnd('/'),
         };
 
         foreach (var database in Databases)
@@ -82,10 +95,13 @@ public sealed class WalletFixture : IAsyncLifetime
             await factory.DisposeAsync();
         }
 
+        Keycloak?.Dispose();
+
         await Task.WhenAll(
             _postgres.DisposeAsync().AsTask(),
             _rabbitMq.DisposeAsync().AsTask(),
-            _redis.DisposeAsync().AsTask());
+            _redis.DisposeAsync().AsTask(),
+            _keycloak.DisposeAsync().AsTask());
     }
 
     private WebApplicationFactory<TEntry> Host<TEntry>(Dictionary<string, string?> settings)

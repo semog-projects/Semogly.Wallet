@@ -13,12 +13,14 @@ class LoginPage extends ConsumerStatefulWidget {
 
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _username = TextEditingController();
+  final _password = TextEditingController();
   bool _submitting = false;
   Object? _error;
 
   @override
   void dispose() {
     _username.dispose();
+    _password.dispose();
     super.dispose();
   }
 
@@ -40,7 +42,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     try {
       // Sucesso: o router redireciona para a home ao perceber a nova sessão
-      await ref.read(sessionControllerProvider.notifier).signIn(username);
+      await ref.read(sessionControllerProvider.notifier).signIn(username, _password.text);
     } catch (error) {
       if (mounted) {
         setState(() => _error = error);
@@ -69,7 +71,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 Text('Semogly Wallet', textAlign: TextAlign.center, style: theme.textTheme.headlineMedium),
                 const SizedBox(height: 8),
                 Text(
-                  'Ambiente de desenvolvimento: entre com o e-mail cadastrado na conta.',
+                  'Ambiente de desenvolvimento: usuários do Keycloak (ex.: maria.demo@email.com / Senha@123).',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall,
                 ),
@@ -79,8 +81,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   controller: _username,
                   decoration: const InputDecoration(labelText: 'E-mail', border: OutlineInputBorder()),
                   keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.next,
                   autocorrect: false,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  key: const Key('password'),
+                  controller: _password,
+                  decoration: const InputDecoration(labelText: 'Senha', border: OutlineInputBorder()),
+                  obscureText: true,
+                  textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _submit(),
                 ),
                 const SizedBox(height: 16),
@@ -106,6 +116,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   static String _messageFor(Object? error) => switch (error) {
     FormatException() => 'Informe um e-mail válido.',
+    DioException(response: Response(statusCode: 401)) => 'E-mail ou senha inválidos.',
     DioException(type: DioExceptionType.connectionError || DioExceptionType.connectionTimeout) =>
       'Sem conexão com o servidor. Verifique se o AppHost está rodando.',
     _ => 'Não foi possível entrar. Tente novamente.',

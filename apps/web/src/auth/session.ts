@@ -20,8 +20,7 @@ export function useLogin() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ username, asOperator }: { username: string; asOperator: boolean }) =>
-      login(username, asOperator ? [OPERATOR_ROLE] : []),
+    mutationFn: ({ username, password }: { username: string; password: string }) => login(username, password),
     onSuccess: (user) => queryClient.setQueryData(sessionKey, user),
   })
 }

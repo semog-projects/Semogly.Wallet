@@ -15,10 +15,11 @@ builder.Services.AddReverseProxy()
     .AddBffTokenForwarding();
 
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddGatewaySecurity(builder.Configuration);
+builder.AddGatewaySecurity();
 builder.Services.AddGatewayRateLimiting();
 builder.Services.AddProblemDetails();
 builder.AddBffDataProtection();
+builder.AddBffSessionStore();
 builder.AddRealtime();
 
 var app = builder.Build();

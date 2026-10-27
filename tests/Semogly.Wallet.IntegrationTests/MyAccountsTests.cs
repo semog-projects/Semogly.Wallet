@@ -61,11 +61,12 @@ public sealed class MyAccountsTests(WalletFixture fixture)
     }
 
     [Fact]
-    public async Task Me_WithTokenWithoutEmail_ShouldExplainTheProblem()
+    public async Task Me_ForCustomerWithoutAccounts_ShouldReturnEmptyList()
     {
-        var response = await GetMeAsync(await TokenForAsync("backoffice"));
+        var response = await GetMeAsync(await TokenForAsync($"sem.conta.{Guid.NewGuid():N}@email.com"));
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty((await response.Content.ReadFromJsonAsync<List<AccountResponse>>(Json, Ct))!);
     }
 
     [Fact]
@@ -110,10 +111,11 @@ public sealed class MyAccountsTests(WalletFixture fixture)
         return await fixture.Accounts.CreateClient().SendAsync(request, Ct);
     }
 
+    /// <summary>Token real do Keycloak para um titular (o nome de usuário é o e-mail, como no realm).</summary>
     private async Task<string> TokenForAsync(string username)
     {
-        var response = await fixture.Gateway.CreateClient().PostAsJsonAsync("/auth/token", new { username }, Ct);
-        return (await response.Content.ReadFromJsonAsync<TokenBody>(Ct))!.AccessToken;
+        await fixture.Keycloak.CreateAsync(username, username, "customer");
+        return await fixture.Keycloak.TokenForAsync(username);
     }
 
     private async Task<HttpResponseMessage> GetMeAsync(string? accessToken)
@@ -127,5 +129,4 @@ public sealed class MyAccountsTests(WalletFixture fixture)
         return await fixture.Accounts.CreateClient().SendAsync(request, Ct);
     }
 
-    private sealed record TokenBody(string AccessToken);
 }

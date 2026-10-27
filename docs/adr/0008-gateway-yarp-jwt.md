@@ -13,8 +13,9 @@ obrigar o cliente a conhecer cada endereço.
   - Rotas `/api/{serviço}/...` definidas em configuração.
   - Destinos resolvidos pelo service discovery do Aspire.
   - Só o Gateway tem endpoint externo.
-- **JWT Bearer** em todas as rotas `/api`; o depósito exige o papel `operator`. Em Development, o Gateway emite
-  tokens (`POST /auth/token`) assinados com uma chave gerada pelo Aspire como parâmetro secreto.
+- **JWT Bearer** em todas as rotas `/api`; o depósito exige o papel `operator`. Os tokens vêm do Keycloak
+  ([ADR 0010](0010-keycloak-identity-provider.md)); no início, o próprio Gateway emitia tokens HS256 de
+  desenvolvimento.
 - **Rate limiting** por usuário (claim `sub`, ou IP sem autenticação):
   - Geral: 100 requisições por minuto.
   - `POST /transfers`: token bucket (rajada de 10, ~10 por minuto).
@@ -28,6 +29,5 @@ obrigar o cliente a conhecer cada endereço.
 
 - **Positivas:** segurança, limites e documentação concentrados em um ponto, e os serviços ficam focados no negócio.
 - **Negativas:**
-  - O emissor de tokens é só para desenvolvimento; produção precisa de um Identity Provider.
-  - Os serviços confiam no Gateway (ainda não validam o JWT por conta própria).
+  - Só o Accounts valida o JWT por conta própria; os demais serviços ainda confiam no Gateway.
   - A posse da conta (o usuário só acessar as próprias contas) ainda não é verificada.

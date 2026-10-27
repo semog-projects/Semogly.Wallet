@@ -1,0 +1,141 @@
+{
+  "realm": "semogly-wallet",
+  "displayName": "Semogly Wallet",
+  "enabled": true,
+  "sslRequired": "none",
+  "accessTokenLifespan": 1800,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "customer", "description": "Titular de conta (app do cliente)" },
+      { "name": "operator", "description": "Operação e backoffice" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "wallet-gateway",
+      "name": "Semogly Wallet Gateway (BFF)",
+      "description": "Cliente confidencial do Gateway: fluxo de login do web (BFF) e, em desenvolvimento, password grant",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "dev-gateway-secret-troque-em-producao",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["https://localhost:7100/*", "http://localhost:5100/*"],
+      "webOrigins": ["+"],
+      "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "+" },
+      "protocolMappers": [
+        {
+          "name": "audience-semogly-wallet-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "semogly-wallet-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm-roles-as-role-claim",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "role",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "wallet-mobile",
+      "name": "Semogly Wallet App",
+      "description": "Cliente público do app Flutter: Authorization Code + PKCE",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["com.semogly.wallet:/oauthredirect"],
+      "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "com.semogly.wallet:/logout" },
+      "protocolMappers": [
+        {
+          "name": "audience-semogly-wallet-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "semogly-wallet-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm-roles-as-role-claim",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "role",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "maria.demo@email.com",
+      "email": "maria.demo@email.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Maria",
+      "lastName": "Demo",
+      "credentials": [{ "type": "password", "value": "Senha@123", "temporary": false }],
+      "realmRoles": ["customer"]
+    },
+    {
+      "username": "joao.destino@email.com",
+      "email": "joao.destino@email.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Joao",
+      "lastName": "Destino",
+      "credentials": [{ "type": "password", "value": "Senha@123", "temporary": false }],
+      "realmRoles": ["customer"]
+    },
+    {
+      "username": "ana@email.com",
+      "email": "ana@email.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Ana",
+      "lastName": "Souza",
+      "credentials": [{ "type": "password", "value": "Senha@123", "temporary": false }],
+      "realmRoles": ["customer"]
+    },
+    {
+      "username": "backoffice@semogly.dev",
+      "email": "backoffice@semogly.dev",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Operador",
+      "lastName": "Backoffice",
+      "credentials": [{ "type": "password", "value": "Senha@123", "temporary": false }],
+      "realmRoles": ["operator"]
+    }
+  ]
+}

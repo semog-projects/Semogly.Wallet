@@ -17,7 +17,7 @@ internal static class BffExtensions
 {
     private static readonly string[] SafeMethods = [HttpMethods.Get, HttpMethods.Head, HttpMethods.Options];
 
-    public static AuthenticationBuilder AddBffCookie(this AuthenticationBuilder builder, JwtOptions jwt) =>
+    public static AuthenticationBuilder AddBffCookie(this AuthenticationBuilder builder) =>
         builder.AddCookie(BffDefaults.CookieScheme, options =>
         {
             options.Cookie.Name = BffDefaults.CookieName;
@@ -25,8 +25,8 @@ internal static class BffExtensions
             options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
             options.Cookie.SameSite = SameSiteMode.Strict;
 
-            // A sessão não dura mais que o token guardado nela
-            options.ExpireTimeSpan = jwt.TokenLifetime;
+            // A sessão não dura mais que o token guardado nela (ExpiresUtc definido no login)
+            options.ExpireTimeSpan = TimeSpan.FromHours(1);
             options.SlidingExpiration = false;
 
             // API, não página: 401/403 em vez de redirecionar para uma tela de login
@@ -108,24 +108,30 @@ internal static class BffExtensions
 
     public sealed record BffUser(string Username, IReadOnlyList<string> Roles);
 
-    /// <summary>Login e logout do web. O login usa o emissor de desenvolvimento; em produção seria um fluxo OIDC.</summary>
+    private static readonly string[] AppRoles = [GatewayPolicies.CustomerRole, GatewayPolicies.OperatorRole];
+
+    /// <summary>
+    /// Login e logout do web. Em desenvolvimento, o login pede o token ao Keycloak com usuário e senha;
+    /// o fluxo com redirecionamento (Authorization Code + PKCE) chega na issue #40.
+    /// </summary>
     public static IEndpointRouteBuilder MapBffEndpoints(this IEndpointRouteBuilder app, bool allowDevelopmentLogin)
     {
         var group = app.MapGroup("/bff").WithTags("BFF");
 
         if (allowDevelopmentLogin)
         {
-            group.MapPost("/login", async (SecurityExtensions.TokenRequest request, TokenIssuer issuer, HttpContext http) =>
+            group.MapPost("/login", async (
+                    SecurityExtensions.TokenRequest request,
+                    KeycloakTokenClient keycloak,
+                    HttpContext http,
+                    CancellationToken cancellationToken) =>
                 {
-                    if (string.IsNullOrWhiteSpace(request.Username))
+                    var token = await keycloak.PasswordGrantAsync(request.Username, request.Password, cancellationToken);
+                    if (token is null)
                     {
-                        return Results.ValidationProblem(new Dictionary<string, string[]>
-                        {
-                            [nameof(request.Username)] = ["Informe o usuário."],
-                        });
+                        return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Usuário ou senha inválidos");
                     }
 
-                    var token = issuer.Issue(request.Username, request.Roles);
                     var properties = new AuthenticationProperties { ExpiresUtc = token.ExpiresAt, IsPersistent = true };
                     properties.StoreTokens([new AuthenticationToken { Name = BffDefaults.AccessTokenName, Value = token.AccessToken }]);
 
@@ -152,9 +158,10 @@ internal static class BffExtensions
         return app;
     }
 
+    // Só os papéis da aplicação (o Keycloak também inclui papéis padrão do realm)
     private static BffUser ToUser(ClaimsIdentity identity) => new(
         identity.Name ?? string.Empty,
-        identity.FindAll(identity.RoleClaimType).Select(c => c.Value).ToList());
+        identity.FindAll(identity.RoleClaimType).Select(c => c.Value).Where(AppRoles.Contains).ToList());
 
     private static Task WriteStatus(RedirectContext<CookieAuthenticationOptions> context, int statusCode)
     {

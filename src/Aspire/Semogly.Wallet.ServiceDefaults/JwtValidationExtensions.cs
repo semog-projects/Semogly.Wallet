@@ -1,48 +1,61 @@
-using System.Text;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.JsonWebTokens;
-using Microsoft.IdentityModel.Tokens;
 
 namespace Microsoft.Extensions.Hosting;
 
 /// <summary>
-/// Validação, nos serviços, do JWT que o Gateway emite e repassa (defesa em profundidade: o serviço não
-/// confia apenas no Gateway). Mesmos emissor, audiência e chave configurados no Gateway (seção "Jwt").
+/// Validação dos tokens emitidos pelo Keycloak (Identity Provider). Emissor e chaves de assinatura
+/// vêm do OIDC discovery do realm, com o endereço do Keycloak resolvido pelo service discovery do Aspire.
 /// </summary>
 public static class JwtValidationExtensions
 {
-    public const string EmailClaim = JwtRegisteredClaimNames.Email;
+    /// <summary>Nome do recurso do Keycloak no AppHost (e no service discovery).</summary>
+    public const string KeycloakResource = "keycloak";
 
+    public const string Realm = "semogly-wallet";
+
+    /// <summary>Audiência incluída nos tokens pelos clientes do realm.</summary>
+    public const string Audience = "semogly-wallet-api";
+
+    public const string EmailClaim = "email";
+    public const string NameClaim = "preferred_username";
+
+    /// <summary>Papéis do realm achatados no claim "role" por um mapeador do Keycloak.</summary>
+    public const string RoleClaim = "role";
+
+    public static AuthenticationBuilder AddWalletJwtBearer(
+        this AuthenticationBuilder authentication,
+        IHostEnvironment environment,
+        string scheme = JwtBearerDefaults.AuthenticationScheme,
+        Action<JwtBearerOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(environment);
+
+        return authentication.AddKeycloakJwtBearer(KeycloakResource, Realm, scheme, options =>
+        {
+            options.Audience = Audience;
+
+            // Keycloak local em HTTP; fora de desenvolvimento a metadata exige HTTPS
+            options.RequireHttpsMetadata = !environment.IsDevelopment();
+
+            // Nomes curtos das claims (preferred_username, email, role), como emitidos pelo Keycloak
+            options.MapInboundClaims = false;
+            options.TokenValidationParameters.NameClaimType = NameClaim;
+            options.TokenValidationParameters.RoleClaimType = RoleClaim;
+
+            configure?.Invoke(options);
+        });
+    }
+
+    /// <summary>Serviços validam por conta própria o token repassado pelo Gateway (defesa em profundidade).</summary>
     public static IHostApplicationBuilder AddJwtValidation(this IHostApplicationBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        var section = builder.Configuration.GetSection("Jwt");
-        var signingKey = section["SigningKey"];
-
-        if (string.IsNullOrWhiteSpace(signingKey) || signingKey.Length < 32)
-        {
-            throw new InvalidOperationException("Jwt:SigningKey deve ter pelo menos 32 caracteres.");
-        }
-
-        builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
-            {
-                // Nomes curtos das claims (sub, email, role), como emitidos pelo Gateway
-                options.MapInboundClaims = false;
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidIssuer = section["Issuer"] ?? "semogly-wallet-gateway",
-                    ValidAudience = section["Audience"] ?? "semogly-wallet-api",
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
-                    NameClaimType = JwtRegisteredClaimNames.Sub,
-                    RoleClaimType = "role",
-                    ClockSkew = TimeSpan.FromSeconds(30),
-                };
-            });
-
+        builder.Services
+            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddWalletJwtBearer(builder.Environment);
         builder.Services.AddAuthorization();
 
         return builder;

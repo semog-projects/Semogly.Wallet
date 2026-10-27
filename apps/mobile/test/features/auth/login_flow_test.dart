@@ -12,6 +12,7 @@ void main() {
     expect(find.text('Entrar'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('username')), 'ana@email.com');
+    await tester.enterText(find.byKey(const Key('password')), 'Senha@123');
     await tester.tap(find.text('Entrar'));
     await tester.pumpAndSettle();
 
@@ -47,6 +48,7 @@ void main() {
     await pumpApp(tester, auth: FakeAuthRepository(failSignIn: true));
 
     await tester.enterText(find.byKey(const Key('username')), 'ana@email.com');
+    await tester.enterText(find.byKey(const Key('password')), 'Senha@123');
     await tester.tap(find.text('Entrar'));
     await tester.pumpAndSettle();
 

@@ -41,7 +41,7 @@ public static class OpenApiExtensions
                 Type = SecuritySchemeType.Http,
                 Scheme = "bearer",
                 BearerFormat = "JWT",
-                Description = "Token emitido em POST /auth/token no Gateway",
+                Description = "Token do Keycloak (em desenvolvimento: POST /auth/token no Gateway com usuário e senha)",
             };
             document.Security =
             [

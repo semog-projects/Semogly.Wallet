@@ -9,10 +9,12 @@ String tokenWith(Map<String, Object?> payload) {
 }
 
 void main() {
-  test('lê o subject e a expiração do payload', () {
-    final claims = JwtClaims.tryParse(tokenWith({'sub': 'ana', 'exp': 1_800_000_000}));
+  test('usa o preferred_username do Keycloak (o sub é um id interno)', () {
+    final claims = JwtClaims.tryParse(
+      tokenWith({'sub': '9b2f7c1e-uuid', 'preferred_username': 'ana@email.com', 'exp': 1_800_000_000}),
+    );
 
-    expect(claims?.subject, 'ana');
+    expect(claims?.username, 'ana@email.com');
     expect(claims?.expiresAt, DateTime.utc(2027, 1, 15, 8));
   });
 
@@ -26,5 +28,6 @@ void main() {
     expect(JwtClaims.tryParse('abc'), isNull);
     expect(JwtClaims.tryParse('a.%%%.c'), isNull);
     expect(JwtClaims.tryParse(tokenWith({'exp': 1})), isNull);
+    expect(JwtClaims.tryParse(tokenWith({'preferred_username': 'ana'})), isNull);
   });
 }

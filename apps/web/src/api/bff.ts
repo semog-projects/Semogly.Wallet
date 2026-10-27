@@ -24,15 +24,19 @@ export async function getSession(): Promise<SessionUser | null> {
   return (await response.json()) as SessionUser
 }
 
-export async function login(username: string, roles: string[]): Promise<SessionUser> {
+/** Login de desenvolvimento: o Gateway obtém o token do Keycloak com usuário e senha (fluxo OIDC na #40). */
+export async function login(username: string, password: string): Promise<SessionUser> {
   const response = await fetch('/bff/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', [CSRF_HEADER]: '1' },
-    body: JSON.stringify({ username, roles }),
+    body: JSON.stringify({ username, password }),
   })
 
   if (!response.ok) {
-    throw new ApiError(response.status, 'Não foi possível entrar. Verifique os dados e tente novamente.')
+    throw new ApiError(
+      response.status,
+      response.status === 401 ? 'Usuário ou senha inválidos.' : 'Não foi possível entrar. Tente novamente.',
+    )
   }
 
   return (await response.json()) as SessionUser

@@ -2,18 +2,17 @@ import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { isOperator, useLogin, useSession } from '@/auth/session'
 
 /**
- * Login de desenvolvimento: o Gateway emite a sessão para qualquer usuário.
- * Em produção, este botão iniciaria o fluxo OIDC com o Identity Provider.
+ * Login de desenvolvimento: o Gateway (BFF) obtém o token do Keycloak com usuário e senha e cria a sessão.
+ * O fluxo OIDC com redirecionamento para a tela do Keycloak chega na issue #40.
  */
 export function LoginPage() {
-  const [username, setUsername] = useState('backoffice')
-  const [asOperator, setAsOperator] = useState(true)
+  const [username, setUsername] = useState('backoffice@semogly.dev')
+  const [password, setPassword] = useState('')
   const { data: user } = useSession()
   const login = useLogin()
   const navigate = useNavigate()
@@ -25,7 +24,7 @@ export function LoginPage() {
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    login.mutate({ username: username.trim(), asOperator }, { onSuccess: () => navigate(from, { replace: true }) })
+    login.mutate({ username: username.trim(), password }, { onSuccess: () => navigate(from, { replace: true }) })
   }
 
   return (
@@ -33,7 +32,9 @@ export function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Semogly Wallet · Backoffice</CardTitle>
-          <CardDescription>Ambiente de desenvolvimento: a sessão é criada pelo Gateway (BFF).</CardDescription>
+          <CardDescription>
+            Usuários do Keycloak (ambiente de desenvolvimento). Operador: backoffice@semogly.dev / Senha@123
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -47,20 +48,23 @@ export function LoginPage() {
                 required
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="operator"
-                checked={asOperator}
-                onCheckedChange={(checked) => setAsOperator(checked === true)}
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                required
               />
-              <Label htmlFor="operator">Entrar como operador</Label>
             </div>
             {login.isError && (
               <p role="alert" className="text-sm text-destructive">
                 {login.error.message}
               </p>
             )}
-            <Button type="submit" className="w-full" disabled={login.isPending || !username.trim()}>
+            <Button type="submit" className="w-full" disabled={login.isPending || !username.trim() || !password}>
               {login.isPending ? 'Entrando…' : 'Entrar'}
             </Button>
           </form>
